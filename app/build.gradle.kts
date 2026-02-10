@@ -2,14 +2,12 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
-    id("kotlin-kapt")
+    id("org.jetbrains.kotlin.kapt")
 }
 
 android {
     namespace = "com.shamana.reliablelocationalert"
-    compileSdk {
-        version = release(36)
-    }
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.shamana.reliablelocationalert"
@@ -63,4 +61,5 @@ dependencies {
     kapt("androidx.room:room-compiler:2.6.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
     implementation("androidx.core:core-ktx:1.12.0")
+    implementation("com.google.android.gms:play-services-location:21.0.1")
 }

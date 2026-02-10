@@ -9,6 +9,11 @@ import android.os.Build
 import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import com.shamana.reliablelocationalert.core.system.location.FusedLocationProviderImpl
+import com.shamana.reliablelocationalert.core.system.location.LocationProvider
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class LocationTrackingService : Service() {
 
@@ -16,12 +21,16 @@ class LocationTrackingService : Service() {
         private const val NOTIFICATION_ID = 1001
     }
 
+    private lateinit var locationProvider: LocationProvider
+
     override fun onCreate() {
         super.onCreate()
+        locationProvider = FusedLocationProviderImpl(this)
         Log.d("LocationService", "Service created")
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+
         startForeground(
             NOTIFICATION_ID,
             createNotification()
@@ -29,12 +38,22 @@ class LocationTrackingService : Service() {
 
         Log.d("LocationService", "Foreground started")
 
+        locationProvider.start { location ->
+            val time = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+                .format(Date())
+            Log.d(
+                "LocationService",
+                "📍 [$time] Lat=${"%.6f".format(location.latitude)}, Lng=${"%.6f".format(location.longitude)}"
+            )
+        }
+
         return START_STICKY
     }
 
     override fun onDestroy() {
+        locationProvider.stop()
+        Log.d("LocationService", "Service destroyed, location stopped")
         super.onDestroy()
-        Log.d("LocationService", "Service destroyed")
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -59,5 +78,4 @@ class LocationTrackingService : Service() {
             .setOngoing(true)
             .build()
     }
-
 }
