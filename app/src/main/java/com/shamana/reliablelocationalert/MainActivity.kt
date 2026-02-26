@@ -11,7 +11,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
@@ -21,20 +20,23 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.shamana.reliablelocationalert.core.system.alarm.AlarmManagerScheduler
 import com.shamana.reliablelocationalert.core.system.service.LocationTrackingService
+import com.shamana.reliablelocationalert.core.system.storage.DestinationStorage
 import com.shamana.reliablelocationalert.ui.theme.ReliableLocationAlertTheme
 
 class MainActivity : ComponentActivity() {
 
     private lateinit var scheduler: AlarmManagerScheduler
+    private lateinit var destinationStorage: DestinationStorage
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         scheduler = AlarmManagerScheduler(this)
-
+        destinationStorage = DestinationStorage(this)
         val prefs = getSharedPreferences("engine", MODE_PRIVATE)
         val resumeRequired = prefs.getBoolean("resume_required", false)
         Log.d("MainActivity", "Resume required: $resumeRequired")
@@ -47,29 +49,56 @@ class MainActivity : ComponentActivity() {
         setContent {
             ReliableLocationAlertTheme {
 
-                var isTracking by remember { mutableStateOf(false) }
+                var latitude by remember { mutableStateOf("") }
+                var longitude by remember { mutableStateOf("") }
+                var radius by remember { mutableStateOf("200") }
 
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
 
-                    Text(
-                        text = if (isTracking)
-                            "Tap to stop tracking"
-                        else
-                            "Tap to start tracking",
-
+                    androidx.compose.foundation.layout.Column(
                         modifier = Modifier
                             .padding(innerPadding)
                             .fillMaxSize()
-                            .clickable {
+                            .padding(24.dp)
+                    ) {
 
-                                if (isTracking) {
-                                    stopTrackingService()
-                                } else {
-                                    checkPermissionsAndStart()
-                                }
-                                isTracking = !isTracking
+                        androidx.compose.material3.OutlinedTextField(
+                            value = latitude,
+                            onValueChange = { latitude = it },
+                            label = { Text("Latitude") }
+                        )
+
+                        androidx.compose.material3.OutlinedTextField(
+                            value = longitude,
+                            onValueChange = { longitude = it },
+                            label = { Text("Longitude") }
+                        )
+
+                        androidx.compose.material3.OutlinedTextField(
+                            value = radius,
+                            onValueChange = { radius = it },
+                            label = { Text("Radius (meters)") }
+                        )
+
+                        androidx.compose.material3.Button(
+                            onClick = {
+
+                                if (latitude.isBlank() || longitude.isBlank()) return@Button
+
+                                val dest = com.shamana.reliablelocationalert.core.domain.model.Destination(
+                                    latitude = latitude.toDouble(),
+                                    longitude = longitude.toDouble(),
+                                    alertRadiusMeters = radius.toFloat()
+                                )
+
+                                destinationStorage.saveDestination(dest)
+
+                                checkPermissionsAndStart()
                             }
-                    )
+                        ) {
+                            Text("Start Tracking")
+                        }
+                    }
                 }
             }
         }

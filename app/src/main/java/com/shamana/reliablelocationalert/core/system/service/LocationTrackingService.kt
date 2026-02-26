@@ -13,13 +13,13 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.content.edit
 import com.shamana.reliablelocationalert.core.domain.model.AlertRequest
-import com.shamana.reliablelocationalert.core.domain.model.Destination
 import com.shamana.reliablelocationalert.core.domain.model.LocationSample
 import com.shamana.reliablelocationalert.core.domain.model.TrackingState
 import com.shamana.reliablelocationalert.core.domain.usecase.ProcessLocationUpdateUseCase
 import com.shamana.reliablelocationalert.core.system.alarm.AlarmManagerScheduler
 import com.shamana.reliablelocationalert.core.system.location.FusedLocationProviderImpl
 import com.shamana.reliablelocationalert.core.system.location.LocationProvider
+import com.shamana.reliablelocationalert.core.system.storage.DestinationStorage
 
 class LocationTrackingService : Service() {
 
@@ -27,11 +27,7 @@ class LocationTrackingService : Service() {
         private const val NOTIFICATION_ID = 1001
     }
 
-    private val destination = Destination(
-        latitude = 12.978330,
-        longitude = 77.638489,
-        alertRadiusMeters = 200f
-    )
+    private lateinit var destinationStorage: DestinationStorage
 
     private lateinit var locationProvider: LocationProvider
     private lateinit var processUseCase: ProcessLocationUpdateUseCase
@@ -41,6 +37,16 @@ class LocationTrackingService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+
+        destinationStorage = DestinationStorage(this)
+
+        val destination = destinationStorage.getDestination()
+
+        if (destination == null) {
+            Log.e("LocationService", "No destination saved. Stopping.")
+            stopSelf()
+            return
+        }
 
         locationProvider = FusedLocationProviderImpl(this)
         processUseCase = ProcessLocationUpdateUseCase(destination)
@@ -200,7 +206,9 @@ class LocationTrackingService : Service() {
     }
 
     override fun onDestroy() {
-        locationProvider.stop()
+        if (::locationProvider.isInitialized) {
+            locationProvider.stop()
+        }
         isTrackingActive = false
         super.onDestroy()
     }
