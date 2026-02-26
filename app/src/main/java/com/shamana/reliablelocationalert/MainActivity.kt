@@ -6,13 +6,13 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
-import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
@@ -22,32 +22,28 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import com.shamana.reliablelocationalert.core.system.alarm.AlarmManagerScheduler
-import com.shamana.reliablelocationalert.core.system.service.LocationTrackingService
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.shamana.reliablelocationalert.core.domain.model.Destination
 import com.shamana.reliablelocationalert.core.system.storage.DestinationStorage
+import com.shamana.reliablelocationalert.ui.presentation.TrackingViewModel
 import com.shamana.reliablelocationalert.ui.theme.ReliableLocationAlertTheme
 
 class MainActivity : ComponentActivity() {
 
-    private lateinit var scheduler: AlarmManagerScheduler
     private lateinit var destinationStorage: DestinationStorage
+    private var pendingViewModel: TrackingViewModel? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        scheduler = AlarmManagerScheduler(this)
         destinationStorage = DestinationStorage(this)
-        val prefs = getSharedPreferences("engine", MODE_PRIVATE)
-        val resumeRequired = prefs.getBoolean("resume_required", false)
-        Log.d("MainActivity", "Resume required: $resumeRequired")
-        if (resumeRequired) {
-            prefs.edit().putBoolean("resume_required", false).apply()
-            startTrackingService()
-        }
 
         enableEdgeToEdge()
         setContent {
             ReliableLocationAlertTheme {
+                val viewModel: TrackingViewModel = viewModel()
+                val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
                 var latitude by remember { mutableStateOf("") }
                 var longitude by remember { mutableStateOf("") }
@@ -80,23 +76,26 @@ class MainActivity : ComponentActivity() {
                             label = { Text("Radius (meters)") }
                         )
 
-                        androidx.compose.material3.Button(
+                        Button(
                             onClick = {
+                                if (uiState.isTracking) {
+                                    viewModel.stopTracking()
+                                } else {
 
-                                if (latitude.isBlank() || longitude.isBlank()) return@Button
+                                    if (latitude.isBlank() || longitude.isBlank()) return@Button
 
-                                val dest = com.shamana.reliablelocationalert.core.domain.model.Destination(
-                                    latitude = latitude.toDouble(),
-                                    longitude = longitude.toDouble(),
-                                    alertRadiusMeters = radius.toFloat()
-                                )
+                                    val dest = Destination(
+                                        latitude = latitude.toDouble(),
+                                        longitude = longitude.toDouble(),
+                                        alertRadiusMeters = radius.toFloat()
+                                    )
 
-                                destinationStorage.saveDestination(dest)
-
-                                checkPermissionsAndStart()
+                                    destinationStorage.saveDestination(dest)
+                                    checkPermissionsAndStart(viewModel)
+                                }
                             }
                         ) {
-                            Text("Start Tracking")
+                            Text(if (uiState.isTracking) "Stop Tracking" else "Start Tracking")
                         }
                     }
                 }
@@ -122,12 +121,14 @@ class MainActivity : ComponentActivity() {
                 permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
                         permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
 
-            if (granted) startTrackingService()
+            if (granted) pendingViewModel?.startTracking()
         }
 
     /* -------------------- Permission Flow -------------------- */
 
-    private fun checkPermissionsAndStart() {
+    private fun checkPermissionsAndStart(viewModel: TrackingViewModel) {
+
+        pendingViewModel = viewModel
 
         if (Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(
@@ -147,7 +148,7 @@ class MainActivity : ComponentActivity() {
         }
 
         if (hasLocationPermission()) {
-            startTrackingService()
+            viewModel.startTracking()
         } else {
             requestLocationPermission()
         }
@@ -160,28 +161,6 @@ class MainActivity : ComponentActivity() {
                 Manifest.permission.ACCESS_COARSE_LOCATION
             )
         )
-    }
-
-    /* -------------------- Tracking Service -------------------- */
-
-    private fun startTrackingService() {
-        getSharedPreferences("engine", MODE_PRIVATE)
-            .edit()
-            .putBoolean("tracking_active", true)
-            .apply()
-
-        val intent = Intent(this, LocationTrackingService::class.java)
-        ContextCompat.startForegroundService(this, intent)
-    }
-
-    private fun stopTrackingService() {
-        getSharedPreferences("engine", MODE_PRIVATE)
-            .edit()
-            .putBoolean("tracking_active", false)
-            .apply()
-
-        val intent = Intent(this, LocationTrackingService::class.java)
-        stopService(intent)
     }
 
     private fun hasLocationPermission(): Boolean {
