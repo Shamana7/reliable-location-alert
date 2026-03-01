@@ -1,6 +1,8 @@
 package com.shamana.reliablelocationalert.core.domain.usecase
 
-import com.shamana.reliablelocationalert.core.domain.model.*
+import com.shamana.reliablelocationalert.core.domain.model.Destination
+import com.shamana.reliablelocationalert.core.domain.model.LocationSample
+import com.shamana.reliablelocationalert.core.domain.model.TrackingState
 
 class ProcessLocationUpdateUseCase(
     private val destination: Destination

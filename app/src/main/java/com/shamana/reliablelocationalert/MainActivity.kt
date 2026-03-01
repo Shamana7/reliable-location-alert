@@ -25,19 +25,16 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.shamana.reliablelocationalert.core.domain.model.Destination
-import com.shamana.reliablelocationalert.core.system.storage.DestinationStorage
 import com.shamana.reliablelocationalert.ui.presentation.TrackingViewModel
 import com.shamana.reliablelocationalert.ui.theme.ReliableLocationAlertTheme
 
 class MainActivity : ComponentActivity() {
 
-    private lateinit var destinationStorage: DestinationStorage
     private var pendingViewModel: TrackingViewModel? = null
+    private var pendingDestination: Destination? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        destinationStorage = DestinationStorage(this)
 
         enableEdgeToEdge()
         setContent {
@@ -45,9 +42,15 @@ class MainActivity : ComponentActivity() {
                 val viewModel: TrackingViewModel = viewModel()
                 val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-                var latitude by remember { mutableStateOf("") }
-                var longitude by remember { mutableStateOf("") }
-                var radius by remember { mutableStateOf("200") }
+                var latitude by remember(uiState.destination) {
+                    mutableStateOf(uiState.destination?.latitude?.toString() ?: "")
+                }
+                var longitude by remember(uiState.destination) {
+                    mutableStateOf(uiState.destination?.longitude?.toString() ?: "")
+                }
+              var radius by remember(uiState.destination) {
+                    mutableStateOf(uiState.destination?.alertRadiusMeters?.toString() ?: "200")
+                }
 
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
 
@@ -90,8 +93,7 @@ class MainActivity : ComponentActivity() {
                                         alertRadiusMeters = radius.toFloat()
                                     )
 
-                                    destinationStorage.saveDestination(dest)
-                                    checkPermissionsAndStart(viewModel)
+                                    checkPermissionsAndStart(viewModel, dest)
                                 }
                             }
                         ) {
@@ -121,14 +123,22 @@ class MainActivity : ComponentActivity() {
                 permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
                         permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
 
-            if (granted) pendingViewModel?.startTracking()
+            if (granted) {
+                pendingDestination?.let { dest ->
+                    pendingViewModel?.startTracking(dest)
+                }
+            }
         }
 
     /* -------------------- Permission Flow -------------------- */
 
-    private fun checkPermissionsAndStart(viewModel: TrackingViewModel) {
+    private fun checkPermissionsAndStart(
+        viewModel: TrackingViewModel,
+        destination: Destination
+    ) {
 
         pendingViewModel = viewModel
+        pendingDestination = destination
 
         if (Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(
@@ -148,7 +158,7 @@ class MainActivity : ComponentActivity() {
         }
 
         if (hasLocationPermission()) {
-            viewModel.startTracking()
+            viewModel.startTracking(destination)
         } else {
             requestLocationPermission()
         }

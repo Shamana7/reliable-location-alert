@@ -11,15 +11,22 @@ import android.os.Build
 import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
-import androidx.core.content.edit
+import com.shamana.reliablelocationalert.ReliableLocationAlertApp
+import com.shamana.reliablelocationalert.core.data.repository.TrackingRepository
 import com.shamana.reliablelocationalert.core.domain.model.AlertRequest
+import com.shamana.reliablelocationalert.core.domain.model.Destination
 import com.shamana.reliablelocationalert.core.domain.model.LocationSample
 import com.shamana.reliablelocationalert.core.domain.model.TrackingState
 import com.shamana.reliablelocationalert.core.domain.usecase.ProcessLocationUpdateUseCase
 import com.shamana.reliablelocationalert.core.system.alarm.AlarmManagerScheduler
 import com.shamana.reliablelocationalert.core.system.location.FusedLocationProviderImpl
 import com.shamana.reliablelocationalert.core.system.location.LocationProvider
-import com.shamana.reliablelocationalert.core.system.storage.DestinationStorage
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class LocationTrackingService : Service() {
 
@@ -27,39 +34,25 @@ class LocationTrackingService : Service() {
         private const val NOTIFICATION_ID = 1001
     }
 
-    private lateinit var destinationStorage: DestinationStorage
-
+    private lateinit var repository: TrackingRepository
     private lateinit var locationProvider: LocationProvider
     private lateinit var processUseCase: ProcessLocationUpdateUseCase
     private lateinit var scheduler: AlarmManagerScheduler
+
     private var currentState = TrackingState.TRACKING_ACTIVE
     private var isTrackingActive = false
+
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     override fun onCreate() {
         super.onCreate()
 
-        destinationStorage = DestinationStorage(this)
+        repository =
+            (application as ReliableLocationAlertApp)
+                .container
+                .trackingRepository
 
-        val destination = destinationStorage.getDestination()
-
-        if (destination == null) {
-            Log.e("LocationService", "No destination saved. Stopping.")
-            stopSelf()
-            return
-        }
-
-        locationProvider = FusedLocationProviderImpl(this)
-        processUseCase = ProcessLocationUpdateUseCase(destination)
         scheduler = AlarmManagerScheduler(this)
-
-        val savedStateName = getSharedPreferences("engine", MODE_PRIVATE)
-            .getString("tracking_state", TrackingState.TRACKING_ACTIVE.name)
-
-        currentState = try {
-            TrackingState.valueOf(savedStateName!!)
-        } catch (e: Exception) {
-            TrackingState.TRACKING_ACTIVE
-        }
 
         Log.d("LocationService", "Service created")
     }
@@ -72,25 +65,42 @@ class LocationTrackingService : Service() {
         )
 
         if (!hasLocationPermission()) {
-            Log.e("LocationService", "No location permission. Stopping.")
             stopSelf()
             return START_NOT_STICKY
         }
 
-        if (!isSessionActive()) {
-            Log.d("LocationService", "No active session. Stopping.")
-            stopSelf()
-            return START_NOT_STICKY
-        }
+        serviceScope.launch {
 
-        if (!isTrackingActive) {
-            startLocationUpdates()
+            val session = withContext(Dispatchers.IO) {
+                repository.getSession()
+            }
+
+            if (session == null || session.state == TrackingState.COMPLETED) {
+                Log.d("LocationService", "No active session. Stopping.")
+                stopSelf()
+                return@launch
+            }
+
+            currentState = session.state
+
+            initializeTracking(session.destination)
         }
 
         return START_STICKY
     }
 
+    private fun initializeTracking(destination: Destination) {
+
+        locationProvider = FusedLocationProviderImpl(this)
+        processUseCase = ProcessLocationUpdateUseCase(destination)
+
+        if (!isTrackingActive) {
+            startLocationUpdates()
+        }
+    }
+
     private fun startLocationUpdates() {
+
         try {
             locationProvider.start { location ->
 
@@ -108,28 +118,34 @@ class LocationTrackingService : Service() {
 
                     Log.d("LocationService", "State changed: $currentState → $newState")
 
+                    serviceScope.launch(Dispatchers.IO) {
+
+                        val session = repository.getSession()
+
+                        if (session != null) {
+
+                            repository.saveSession(
+                                session.copy(
+                                    state = newState,
+                                    lastKnownLatitude = sample.latitude,
+                                    lastKnownLongitude = sample.longitude,
+                                    lastUpdatedAt = System.currentTimeMillis()
+                                )
+                            )
+                        }
+                    }
+
                     if (newState == TrackingState.NEAR_DESTINATION) {
 
                         scheduleArrivalAlert()
 
                         currentState = TrackingState.COMPLETED
 
-                        getSharedPreferences("engine", MODE_PRIVATE)
-                            .edit()
-                            .putString("tracking_state", TrackingState.COMPLETED.name)
-                            .apply()
-
                         locationProvider.stop()
                         stopSelf()
 
                     } else {
-
                         currentState = newState
-
-                        getSharedPreferences("engine", MODE_PRIVATE)
-                            .edit {
-                                putString("tracking_state", newState.name)
-                            }
                     }
                 }
             }
@@ -157,26 +173,6 @@ class LocationTrackingService : Service() {
         Log.d("LocationService", "Arrival alert scheduled")
     }
 
-    private fun isSessionActive(): Boolean {
-
-        val prefs = getSharedPreferences("engine", MODE_PRIVATE)
-
-        val active = prefs.getBoolean("tracking_active", false)
-
-        val stateName = prefs.getString(
-            "tracking_state",
-            TrackingState.TRACKING_ACTIVE.name
-        )
-
-        val state = try {
-            TrackingState.valueOf(stateName!!)
-        } catch (e: Exception) {
-            TrackingState.TRACKING_ACTIVE
-        }
-
-        return active && state != TrackingState.COMPLETED
-    }
-
     private fun hasLocationPermission(): Boolean {
         return checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) ==
                 PackageManager.PERMISSION_GRANTED ||
@@ -185,6 +181,7 @@ class LocationTrackingService : Service() {
     }
 
     private fun createNotification(): Notification {
+
         val channelId = "location_tracking"
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -206,9 +203,12 @@ class LocationTrackingService : Service() {
     }
 
     override fun onDestroy() {
+        serviceScope.cancel()
+
         if (::locationProvider.isInitialized) {
             locationProvider.stop()
         }
+
         isTrackingActive = false
         super.onDestroy()
     }
