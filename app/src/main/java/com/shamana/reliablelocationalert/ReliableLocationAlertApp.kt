@@ -2,7 +2,9 @@ package com.shamana.reliablelocationalert
 
 import android.app.Application
 import com.shamana.reliablelocationalert.core.system.di.AppContainer
+import dagger.hilt.android.HiltAndroidApp
 
+@HiltAndroidApp
 class ReliableLocationAlertApp : Application() {
 
     lateinit var container: AppContainer

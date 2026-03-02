@@ -11,7 +11,6 @@ import android.os.Build
 import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
-import com.shamana.reliablelocationalert.ReliableLocationAlertApp
 import com.shamana.reliablelocationalert.core.data.repository.TrackingRepository
 import com.shamana.reliablelocationalert.core.domain.model.AlertRequest
 import com.shamana.reliablelocationalert.core.domain.model.Destination
@@ -19,25 +18,28 @@ import com.shamana.reliablelocationalert.core.domain.model.LocationSample
 import com.shamana.reliablelocationalert.core.domain.model.TrackingState
 import com.shamana.reliablelocationalert.core.domain.usecase.ProcessLocationUpdateUseCase
 import com.shamana.reliablelocationalert.core.system.alarm.AlarmManagerScheduler
-import com.shamana.reliablelocationalert.core.system.location.FusedLocationProviderImpl
 import com.shamana.reliablelocationalert.core.system.location.LocationProvider
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import javax.inject.Inject
 
+@AndroidEntryPoint
 class LocationTrackingService : Service() {
 
     companion object {
         private const val NOTIFICATION_ID = 1001
     }
 
-    private lateinit var repository: TrackingRepository
-    private lateinit var locationProvider: LocationProvider
+    @Inject lateinit var repository: TrackingRepository
+    @Inject lateinit var locationProvider: LocationProvider
+    @Inject lateinit var scheduler: AlarmManagerScheduler
+
     private lateinit var processUseCase: ProcessLocationUpdateUseCase
-    private lateinit var scheduler: AlarmManagerScheduler
 
     private var currentState = TrackingState.TRACKING_ACTIVE
     private var isTrackingActive = false
@@ -46,13 +48,6 @@ class LocationTrackingService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-
-        repository =
-            (application as ReliableLocationAlertApp)
-                .container
-                .trackingRepository
-
-        scheduler = AlarmManagerScheduler(this)
 
         Log.d("LocationService", "Service created")
     }
@@ -91,7 +86,6 @@ class LocationTrackingService : Service() {
 
     private fun initializeTracking(destination: Destination) {
 
-        locationProvider = FusedLocationProviderImpl(this)
         processUseCase = ProcessLocationUpdateUseCase(destination)
 
         if (!isTrackingActive) {

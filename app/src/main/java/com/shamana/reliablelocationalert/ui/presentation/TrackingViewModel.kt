@@ -2,26 +2,25 @@ package com.shamana.reliablelocationalert.ui.presentation
 
 import android.app.Application
 import android.content.Intent
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.shamana.reliablelocationalert.ReliableLocationAlertApp
+import com.shamana.reliablelocationalert.core.data.repository.TrackingRepository
 import com.shamana.reliablelocationalert.core.domain.model.Destination
 import com.shamana.reliablelocationalert.core.domain.model.TrackingSession
 import com.shamana.reliablelocationalert.core.domain.model.TrackingState
 import com.shamana.reliablelocationalert.core.domain.model.TrackingUiState
 import com.shamana.reliablelocationalert.core.system.service.LocationTrackingService
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
-class TrackingViewModel(
-    application: Application
-) : AndroidViewModel(application) {
-
-    private val repository =
-        (application as ReliableLocationAlertApp)
-            .container
-            .trackingRepository
+@HiltViewModel
+class TrackingViewModel @Inject constructor(
+    private val repository: TrackingRepository,
+    private val application: Application
+) : ViewModel() {
 
     private val context = application.applicationContext
 
