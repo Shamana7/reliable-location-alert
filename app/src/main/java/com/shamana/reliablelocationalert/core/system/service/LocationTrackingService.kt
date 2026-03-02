@@ -137,12 +137,15 @@ class LocationTrackingService : Service() {
 
                     if (newState == TrackingState.NEAR_DESTINATION) {
 
-                        scheduleArrivalAlert()
+                        val scheduled = scheduleArrivalAlert()
 
-                        currentState = TrackingState.COMPLETED
-
-                        locationProvider.stop()
-                        stopSelf()
+                        if (scheduled) {
+                            currentState = TrackingState.COMPLETED
+                            locationProvider.stop()
+                            stopSelf()
+                        } else {
+                            Log.e("LocationService", "Alert not scheduled. Keeping tracking active.")
+                        }
 
                     } else {
                         currentState = newState
@@ -159,18 +162,23 @@ class LocationTrackingService : Service() {
         }
     }
 
-    private fun scheduleArrivalAlert() {
+    private fun scheduleArrivalAlert(): Boolean {
 
         val triggerTime = System.currentTimeMillis() + 2000
 
-        scheduler.schedule(
-            AlertRequest(
-                triggerAtMillis = triggerTime,
-                reason = "You are near your destination"
+        return try {
+            scheduler.schedule(
+                AlertRequest(
+                    triggerAtMillis = triggerTime,
+                    reason = "You are near your destination"
+                )
             )
-        )
-
-        Log.d("LocationService", "Arrival alert scheduled")
+            Log.d("LocationService", "Arrival alert scheduled")
+            true
+        } catch (e: SecurityException) {
+            Log.e("LocationService", "Exact alarm scheduling failed")
+            false
+        }
     }
 
     private fun hasLocationPermission(): Boolean {

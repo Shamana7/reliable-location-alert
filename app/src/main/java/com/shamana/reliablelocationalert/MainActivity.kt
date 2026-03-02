@@ -87,10 +87,18 @@ class MainActivity : ComponentActivity() {
 
                                     if (latitude.isBlank() || longitude.isBlank()) return@Button
 
+                                    val lat = latitude.toDoubleOrNull()
+                                    val lng = longitude.toDoubleOrNull()
+                                    val rad = radius.toFloatOrNull()
+
+                                    if (lat == null || lng == null || rad == null) {
+                                        return@Button
+                                    }
+
                                     val dest = Destination(
-                                        latitude = latitude.toDouble(),
-                                        longitude = longitude.toDouble(),
-                                        alertRadiusMeters = radius.toFloat()
+                                        latitude = lat,
+                                        longitude = lng,
+                                        alertRadiusMeters = rad
                                     )
 
                                     checkPermissionsAndStart(viewModel, dest)
