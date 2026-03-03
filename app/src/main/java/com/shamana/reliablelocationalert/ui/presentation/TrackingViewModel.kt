@@ -29,14 +29,19 @@ class TrackingViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            val session = repository.getSession()
+            repository.observeSession().collect { session ->
 
-            if (session != null && session.state != TrackingState.COMPLETED) {
-                _uiState.value = TrackingUiState(
-                    isTracking = true,
-                    destination = session.destination,
-                    state = session.state
-                )
+                if (session == null) {
+                    _uiState.value = TrackingUiState()
+                } else {
+                    _uiState.value = TrackingUiState(
+                        isTracking = session.state != TrackingState.COMPLETED,
+                        destination = session.destination,
+                        state = session.state,
+                        lastLat = session.lastKnownLatitude,
+                        lastLng = session.lastKnownLongitude
+                    )
+                }
             }
         }
     }

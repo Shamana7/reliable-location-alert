@@ -97,7 +97,6 @@ class LocationTrackingService : Service() {
 
         try {
             locationProvider.start { location ->
-
                 val sample = LocationSample(
                     latitude = location.latitude,
                     longitude = location.longitude,
@@ -108,26 +107,28 @@ class LocationTrackingService : Service() {
 
                 val newState = processUseCase.process(sample, currentState)
 
+                serviceScope.launch(Dispatchers.IO) {
+
+                    val session = repository.getSession()
+
+                    if (session != null) {
+
+                        repository.saveSession(
+                            session.copy(
+                                state = newState,
+                                lastKnownLatitude = sample.latitude,
+                                lastKnownLongitude = sample.longitude,
+                                lastUpdatedAt = System.currentTimeMillis()
+                            )
+                        )
+                    }else {
+                        Log.d("LocationService", "Session is NULL — not saving")
+                    }
+                }
+
                 if (newState != currentState) {
 
                     Log.d("LocationService", "State changed: $currentState → $newState")
-
-                    serviceScope.launch(Dispatchers.IO) {
-
-                        val session = repository.getSession()
-
-                        if (session != null) {
-
-                            repository.saveSession(
-                                session.copy(
-                                    state = newState,
-                                    lastKnownLatitude = sample.latitude,
-                                    lastKnownLongitude = sample.longitude,
-                                    lastUpdatedAt = System.currentTimeMillis()
-                                )
-                            )
-                        }
-                    }
 
                     if (newState == TrackingState.NEAR_DESTINATION) {
 
@@ -137,8 +138,6 @@ class LocationTrackingService : Service() {
                             currentState = TrackingState.COMPLETED
                             locationProvider.stop()
                             stopSelf()
-                        } else {
-                            Log.e("LocationService", "Alert not scheduled. Keeping tracking active.")
                         }
 
                     } else {

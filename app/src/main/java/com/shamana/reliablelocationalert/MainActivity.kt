@@ -81,6 +81,10 @@ class MainActivity : ComponentActivity() {
                             label = { Text("Radius (meters)") }
                         )
 
+                        Text("Current state: ${uiState.state}")
+                        Text("Live Lat: ${uiState.lastLat}")
+                        Text("Live Lng: ${uiState.lastLng}")
+
                         Button(
                             onClick = {
                                 if (uiState.isTracking) {
