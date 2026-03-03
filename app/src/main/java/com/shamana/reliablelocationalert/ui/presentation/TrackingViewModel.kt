@@ -39,7 +39,9 @@ class TrackingViewModel @Inject constructor(
                         destination = session.destination,
                         state = session.state,
                         lastLat = session.lastKnownLatitude,
-                        lastLng = session.lastKnownLongitude
+                        lastLng = session.lastKnownLongitude,
+                        distanceMeters = session.distanceMeters,
+                        etaSeconds = session.etaSeconds
                     )
                 }
             }

@@ -12,5 +12,7 @@ data class TrackingEntity(
     val state: String,
     val lastLat: Double?,
     val lastLng: Double?,
-    val updatedAt: Long
+    val updatedAt: Long,
+    val distanceMeters: Float?,
+    val etaSeconds: Long?
 )

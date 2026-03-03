@@ -15,7 +15,11 @@ import com.shamana.reliablelocationalert.core.data.repository.TrackingRepository
 import com.shamana.reliablelocationalert.core.domain.model.AlertRequest
 import com.shamana.reliablelocationalert.core.domain.model.Destination
 import com.shamana.reliablelocationalert.core.domain.model.LocationSample
+import com.shamana.reliablelocationalert.core.domain.model.TrackingSession
 import com.shamana.reliablelocationalert.core.domain.model.TrackingState
+import com.shamana.reliablelocationalert.core.domain.usecase.DistanceCalculator
+import com.shamana.reliablelocationalert.core.domain.usecase.EtaEstimator
+import com.shamana.reliablelocationalert.core.domain.usecase.LocationSampleBuffer
 import com.shamana.reliablelocationalert.core.domain.usecase.ProcessLocationUpdateUseCase
 import com.shamana.reliablelocationalert.core.system.alarm.AlarmManagerScheduler
 import com.shamana.reliablelocationalert.core.system.location.LocationProvider
@@ -46,6 +50,9 @@ class LocationTrackingService : Service() {
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
+    private val sampleBuffer = LocationSampleBuffer(5)
+    private var activeSession: TrackingSession? = null
+
     override fun onCreate() {
         super.onCreate()
 
@@ -69,6 +76,8 @@ class LocationTrackingService : Service() {
             val session = withContext(Dispatchers.IO) {
                 repository.getSession()
             }
+
+            activeSession = session
 
             if (session == null || session.state == TrackingState.COMPLETED) {
                 Log.d("LocationService", "No active session. Stopping.")
@@ -107,22 +116,32 @@ class LocationTrackingService : Service() {
 
                 val newState = processUseCase.process(sample, currentState)
 
-                serviceScope.launch(Dispatchers.IO) {
+                sampleBuffer.add(sample)
 
-                    val session = repository.getSession()
+                activeSession?.let { session ->
 
-                    if (session != null) {
+                    val distance = DistanceCalculator.averageDistanceMeters(
+                        sampleBuffer.samples(),
+                        session.destination
+                    )
 
-                        repository.saveSession(
-                            session.copy(
-                                state = newState,
-                                lastKnownLatitude = sample.latitude,
-                                lastKnownLongitude = sample.longitude,
-                                lastUpdatedAt = System.currentTimeMillis()
-                            )
-                        )
-                    }else {
-                        Log.d("LocationService", "Session is NULL — not saving")
+                    val eta = EtaEstimator.estimateSeconds(
+                        distance,
+                        sampleBuffer.samples()
+                    )
+                    val updated = session.copy(
+                        state = newState,
+                        lastKnownLatitude = sample.latitude,
+                        lastKnownLongitude = sample.longitude,
+                        lastUpdatedAt = System.currentTimeMillis(),
+                        distanceMeters = distance,
+                        etaSeconds = eta
+                    )
+
+                    activeSession = updated
+
+                    serviceScope.launch(Dispatchers.IO) {
+                        repository.saveSession(updated)
                     }
                 }
 
@@ -135,6 +154,20 @@ class LocationTrackingService : Service() {
                         val scheduled = scheduleArrivalAlert()
 
                         if (scheduled) {
+
+                            activeSession?.let { session ->
+
+                                val completed = session.copy(
+                                    state = TrackingState.COMPLETED
+                                )
+
+                                activeSession = completed
+
+                                serviceScope.launch(Dispatchers.IO) {
+                                    repository.saveSession(completed)
+                                }
+                            }
+
                             currentState = TrackingState.COMPLETED
                             locationProvider.stop()
                             stopSelf()

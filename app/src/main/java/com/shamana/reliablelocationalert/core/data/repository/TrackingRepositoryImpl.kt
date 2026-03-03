@@ -24,7 +24,9 @@ class TrackingRepositoryImpl (
                     state = TrackingState.valueOf(it.state),
                     lastKnownLatitude = it.lastLat,
                     lastKnownLongitude = it.lastLng,
-                    lastUpdatedAt = it.updatedAt
+                    lastUpdatedAt = it.updatedAt,
+                    distanceMeters = it.distanceMeters,
+                    etaSeconds = it.etaSeconds
                 )
             }
         }
@@ -41,7 +43,9 @@ class TrackingRepositoryImpl (
                 state = TrackingState.valueOf(it.state),
                 lastKnownLatitude = it.lastLat,
                 lastKnownLongitude = it.lastLng,
-                lastUpdatedAt = it.updatedAt
+                lastUpdatedAt = it.updatedAt,
+                distanceMeters = it.distanceMeters,
+                etaSeconds = it.etaSeconds
             )
         }
     }
@@ -55,7 +59,9 @@ class TrackingRepositoryImpl (
                 state = session.state.name,
                 lastLat = session.lastKnownLatitude,
                 lastLng = session.lastKnownLongitude,
-                updatedAt = session.lastUpdatedAt
+                updatedAt = session.lastUpdatedAt,
+                distanceMeters = session.distanceMeters,
+                etaSeconds = session.etaSeconds
             )
         )
     }

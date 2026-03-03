@@ -5,5 +5,7 @@ data class TrackingSession(
     val state: TrackingState,
     val lastKnownLatitude: Double?,
     val lastKnownLongitude: Double?,
-    val lastUpdatedAt: Long
+    val lastUpdatedAt: Long,
+    val distanceMeters: Float? = null,
+    val etaSeconds: Long? = null
 )

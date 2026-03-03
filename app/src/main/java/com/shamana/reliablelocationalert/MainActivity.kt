@@ -84,6 +84,8 @@ class MainActivity : ComponentActivity() {
                         Text("Current state: ${uiState.state}")
                         Text("Live Lat: ${uiState.lastLat}")
                         Text("Live Lng: ${uiState.lastLng}")
+                        Text("Distance: ${uiState.distanceMeters?.toInt() ?: "--"} m")
+                        Text("ETA: ${uiState.etaSeconds?.div(60) ?: "--"} min")
 
                         Button(
                             onClick = {
