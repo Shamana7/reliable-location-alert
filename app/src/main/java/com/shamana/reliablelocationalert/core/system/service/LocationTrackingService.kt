@@ -39,9 +39,14 @@ class LocationTrackingService : Service() {
         private const val NOTIFICATION_ID = 1001
     }
 
-    @Inject lateinit var repository: TrackingRepository
-    @Inject lateinit var locationProvider: LocationProvider
-    @Inject lateinit var scheduler: AlarmManagerScheduler
+    @Inject
+    lateinit var repository: TrackingRepository
+
+    @Inject
+    lateinit var locationProvider: LocationProvider
+
+    @Inject
+    lateinit var scheduler: AlarmManagerScheduler
 
     private lateinit var processUseCase: ProcessLocationUpdateUseCase
 
@@ -52,6 +57,7 @@ class LocationTrackingService : Service() {
 
     private val sampleBuffer = LocationSampleBuffer(5)
     private var activeSession: TrackingSession? = null
+    private var startDistance: Float? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -125,6 +131,14 @@ class LocationTrackingService : Service() {
                         session.destination
                     )
 
+                    if (startDistance == null) {
+                        startDistance = distance
+                    }
+
+                    val progress = startDistance?.let { start ->
+                        if (start > 0f) ((start - distance) / start).coerceIn(0f, 1f) else 0f
+                    }
+
                     val eta = EtaEstimator.estimateSeconds(
                         distance,
                         sampleBuffer.samples()
@@ -135,7 +149,8 @@ class LocationTrackingService : Service() {
                         lastKnownLongitude = sample.longitude,
                         lastUpdatedAt = System.currentTimeMillis(),
                         distanceMeters = distance,
-                        etaSeconds = eta
+                        etaSeconds = eta,
+                        progress = progress
                     )
 
                     activeSession = updated

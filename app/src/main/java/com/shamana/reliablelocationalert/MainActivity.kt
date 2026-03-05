@@ -10,9 +10,13 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
@@ -41,48 +45,79 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             ReliableLocationAlertTheme {
+
                 val viewModel: TrackingViewModel = hiltViewModel()
                 val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
                 var latitude by remember(uiState.destination) {
                     mutableStateOf(uiState.destination?.latitude?.toString() ?: "")
                 }
+
                 var longitude by remember(uiState.destination) {
                     mutableStateOf(uiState.destination?.longitude?.toString() ?: "")
                 }
+
                 var radius by remember(uiState.destination) {
                     mutableStateOf(uiState.destination?.alertRadiusMeters?.toString() ?: "200")
                 }
 
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                Scaffold(
+                    modifier = Modifier.fillMaxSize()
+                ) { innerPadding ->
 
                     androidx.compose.foundation.layout.Column(
                         modifier = Modifier
                             .padding(innerPadding)
                             .fillMaxSize()
-                            .padding(24.dp)
+                            .padding(24.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
 
                         if (uiState.isTracking) {
 
                             Text(
                                 text = "Tracking Active",
-                                modifier = Modifier.padding(bottom = 16.dp)
+                                style = androidx.compose.material3.MaterialTheme.typography.headlineSmall,
+                                modifier = Modifier.padding(bottom = 20.dp)
                             )
+
+                            /* -------------------- Distance Card -------------------- */
+
+                            androidx.compose.material3.Card {
+
+                                androidx.compose.foundation.layout.Column(
+                                    modifier = Modifier.padding(20.dp)
+                                ) {
+
+                                    Text(
+                                        text = "Distance Remaining",
+                                        style = androidx.compose.material3.MaterialTheme.typography.labelLarge
+                                    )
+
+                                    androidx.compose.foundation.layout.Spacer(
+                                        modifier = Modifier.height(8.dp)
+                                    )
+
+                                    Text(
+                                        text = "${uiState.distanceMeters?.toInt() ?: "--"} m",
+                                        style = androidx.compose.material3.MaterialTheme.typography.headlineMedium
+                                    )
+                                }
+                            }
+
+                            androidx.compose.foundation.layout.Spacer(
+                                modifier = Modifier.height(20.dp)
+                            )
+
+                            /* -------------------- ETA -------------------- */
 
                             Text(
-                                text = "Distance Remaining",
-                                modifier = Modifier.padding(top = 16.dp)
+                                text = "Estimated Arrival",
+                                style = androidx.compose.material3.MaterialTheme.typography.labelLarge
                             )
-
-                            Text(
-                                text = "${uiState.distanceMeters?.toInt() ?: "--"} m",
-                                modifier = Modifier.padding(bottom = 16.dp)
-                            )
-
-                            Text("ETA")
 
                             val etaText = uiState.etaSeconds?.let { seconds ->
+
                                 val minutes = seconds / 60
                                 val remainingSeconds = seconds % 60
 
@@ -91,17 +126,73 @@ class MainActivity : ComponentActivity() {
                                 } else {
                                     "$minutes min $remainingSeconds sec"
                                 }
+
                             } ?: "--"
 
                             Text(
                                 text = etaText,
-                                modifier = Modifier.padding(bottom = 16.dp)
+                                style = androidx.compose.material3.MaterialTheme.typography.headlineSmall,
+                                modifier = Modifier.padding(bottom = 20.dp)
                             )
 
-                            Text("Live Lat: ${uiState.lastLat}")
-                            Text("Live Lng: ${uiState.lastLng}")
+                            /* -------------------- Live Location -------------------- */
 
-                            Text("Current State: ${uiState.state}")
+                            androidx.compose.material3.Card {
+
+                                androidx.compose.foundation.layout.Column(
+                                    modifier = Modifier.padding(16.dp)
+                                ) {
+
+                                    Text(
+                                        text = "Live Location",
+                                        style = androidx.compose.material3.MaterialTheme.typography.labelLarge
+                                    )
+
+                                    androidx.compose.foundation.layout.Spacer(
+                                        modifier = Modifier.height(6.dp)
+                                    )
+
+                                    Text(text = "Lat: ${uiState.lastLat}")
+
+                                    Text(
+                                        text = "Lng: ${uiState.lastLng}"
+                                    )
+                                }
+                            }
+
+                            androidx.compose.foundation.layout.Spacer(
+                                modifier = Modifier.height(20.dp)
+                            )
+
+                            /* -------------------- Progress -------------------- */
+
+                            val progressPercent =
+                                (uiState.progress?.times(100))?.toInt() ?: 0
+
+                            Text(
+                                text = "Progress $progressPercent%",
+                                style = androidx.compose.material3.MaterialTheme.typography.labelLarge
+                            )
+
+                            androidx.compose.foundation.layout.Spacer(
+                                modifier = Modifier.height(8.dp)
+                            )
+
+                            LinearProgressIndicator(
+                                progress = { uiState.progress ?: 0f },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp)
+                            )
+
+                            androidx.compose.foundation.layout.Spacer(
+                                modifier = Modifier.height(16.dp)
+                            )
+
+                            Text(
+                                text = "Current State: ${uiState.state}",
+                                modifier = Modifier.padding(bottom = 28.dp)
+                            )
 
                         } else {
 
@@ -111,10 +202,18 @@ class MainActivity : ComponentActivity() {
                                 label = { Text("Latitude") }
                             )
 
+                            androidx.compose.foundation.layout.Spacer(
+                                modifier = Modifier.height(12.dp)
+                            )
+
                             androidx.compose.material3.OutlinedTextField(
                                 value = longitude,
                                 onValueChange = { longitude = it },
                                 label = { Text("Longitude") }
+                            )
+
+                            androidx.compose.foundation.layout.Spacer(
+                                modifier = Modifier.height(12.dp)
                             )
 
                             androidx.compose.material3.OutlinedTextField(
@@ -125,9 +224,13 @@ class MainActivity : ComponentActivity() {
                         }
 
                         Button(
+                            modifier = Modifier.padding(top = 20.dp),
                             onClick = {
+
                                 if (uiState.isTracking) {
+
                                     viewModel.stopTracking()
+
                                 } else {
 
                                     if (latitude.isBlank() || longitude.isBlank()) return@Button
@@ -150,7 +253,13 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                         ) {
-                            Text(if (uiState.isTracking) "Stop Tracking" else "Start Tracking")
+
+                            Text(
+                                if (uiState.isTracking)
+                                    "Stop Tracking"
+                                else
+                                    "Start Tracking"
+                            )
                         }
                     }
                 }

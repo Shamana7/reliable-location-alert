@@ -14,5 +14,6 @@ data class TrackingEntity(
     val lastLng: Double?,
     val updatedAt: Long,
     val distanceMeters: Float?,
-    val etaSeconds: Long?
+    val etaSeconds: Long?,
+    val progress: Float?
 )

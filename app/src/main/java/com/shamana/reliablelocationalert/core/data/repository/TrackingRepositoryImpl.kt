@@ -8,9 +8,9 @@ import com.shamana.reliablelocationalert.core.domain.model.TrackingState
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
-class TrackingRepositoryImpl (
+class TrackingRepositoryImpl(
     private val dao: TrackingDao
-    ): TrackingRepository {
+) : TrackingRepository {
 
     override fun observeSession(): Flow<TrackingSession?> {
         return dao.observeSession().map { entity ->
@@ -26,7 +26,8 @@ class TrackingRepositoryImpl (
                     lastKnownLongitude = it.lastLng,
                     lastUpdatedAt = it.updatedAt,
                     distanceMeters = it.distanceMeters,
-                    etaSeconds = it.etaSeconds
+                    etaSeconds = it.etaSeconds,
+                    progress = it.progress
                 )
             }
         }
@@ -45,7 +46,8 @@ class TrackingRepositoryImpl (
                 lastKnownLongitude = it.lastLng,
                 lastUpdatedAt = it.updatedAt,
                 distanceMeters = it.distanceMeters,
-                etaSeconds = it.etaSeconds
+                etaSeconds = it.etaSeconds,
+                progress = it.progress
             )
         }
     }
@@ -61,7 +63,8 @@ class TrackingRepositoryImpl (
                 lastLng = session.lastKnownLongitude,
                 updatedAt = session.lastUpdatedAt,
                 distanceMeters = session.distanceMeters,
-                etaSeconds = session.etaSeconds
+                etaSeconds = session.etaSeconds,
+                progress = session.progress
             )
         )
     }

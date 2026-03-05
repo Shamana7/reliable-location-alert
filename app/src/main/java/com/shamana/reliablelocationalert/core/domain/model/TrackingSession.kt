@@ -7,5 +7,6 @@ data class TrackingSession(
     val lastKnownLongitude: Double?,
     val lastUpdatedAt: Long,
     val distanceMeters: Float? = null,
-    val etaSeconds: Long? = null
+    val etaSeconds: Long? = null,
+    val progress: Float? = null
 )
