@@ -50,7 +50,7 @@ class MainActivity : ComponentActivity() {
                 var longitude by remember(uiState.destination) {
                     mutableStateOf(uiState.destination?.longitude?.toString() ?: "")
                 }
-              var radius by remember(uiState.destination) {
+                var radius by remember(uiState.destination) {
                     mutableStateOf(uiState.destination?.alertRadiusMeters?.toString() ?: "200")
                 }
 
@@ -63,29 +63,66 @@ class MainActivity : ComponentActivity() {
                             .padding(24.dp)
                     ) {
 
-                        androidx.compose.material3.OutlinedTextField(
-                            value = latitude,
-                            onValueChange = { latitude = it },
-                            label = { Text("Latitude") }
-                        )
+                        if (uiState.isTracking) {
 
-                        androidx.compose.material3.OutlinedTextField(
-                            value = longitude,
-                            onValueChange = { longitude = it },
-                            label = { Text("Longitude") }
-                        )
+                            Text(
+                                text = "Tracking Active",
+                                modifier = Modifier.padding(bottom = 16.dp)
+                            )
 
-                        androidx.compose.material3.OutlinedTextField(
-                            value = radius,
-                            onValueChange = { radius = it },
-                            label = { Text("Radius (meters)") }
-                        )
+                            Text(
+                                text = "Distance Remaining",
+                                modifier = Modifier.padding(top = 16.dp)
+                            )
 
-                        Text("Current state: ${uiState.state}")
-                        Text("Live Lat: ${uiState.lastLat}")
-                        Text("Live Lng: ${uiState.lastLng}")
-                        Text("Distance: ${uiState.distanceMeters?.toInt() ?: "--"} m")
-                        Text("ETA: ${uiState.etaSeconds?.div(60) ?: "--"} min")
+                            Text(
+                                text = "${uiState.distanceMeters?.toInt() ?: "--"} m",
+                                modifier = Modifier.padding(bottom = 16.dp)
+                            )
+
+                            Text("ETA")
+
+                            val etaText = uiState.etaSeconds?.let { seconds ->
+                                val minutes = seconds / 60
+                                val remainingSeconds = seconds % 60
+
+                                if (minutes == 0L) {
+                                    "$remainingSeconds sec"
+                                } else {
+                                    "$minutes min $remainingSeconds sec"
+                                }
+                            } ?: "--"
+
+                            Text(
+                                text = etaText,
+                                modifier = Modifier.padding(bottom = 16.dp)
+                            )
+
+                            Text("Live Lat: ${uiState.lastLat}")
+                            Text("Live Lng: ${uiState.lastLng}")
+
+                            Text("Current State: ${uiState.state}")
+
+                        } else {
+
+                            androidx.compose.material3.OutlinedTextField(
+                                value = latitude,
+                                onValueChange = { latitude = it },
+                                label = { Text("Latitude") }
+                            )
+
+                            androidx.compose.material3.OutlinedTextField(
+                                value = longitude,
+                                onValueChange = { longitude = it },
+                                label = { Text("Longitude") }
+                            )
+
+                            androidx.compose.material3.OutlinedTextField(
+                                value = radius,
+                                onValueChange = { radius = it },
+                                label = { Text("Radius (meters)") }
+                            )
+                        }
 
                         Button(
                             onClick = {
