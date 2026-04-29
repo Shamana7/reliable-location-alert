@@ -10,6 +10,7 @@ import com.shamana.reliablelocationalert.core.domain.model.TrackingSession
 import com.shamana.reliablelocationalert.core.domain.model.TrackingState
 import com.shamana.reliablelocationalert.core.domain.model.TrackingUiState
 import com.shamana.reliablelocationalert.core.system.service.LocationTrackingService
+import com.shamana.reliablelocationalert.core.system.util.BatteryOptimizationHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -63,7 +64,20 @@ class TrackingViewModel @Inject constructor(
                 )
             )
 
-            val intent = Intent(context, LocationTrackingService::class.java)
+            val intent = Intent(
+                context,
+                LocationTrackingService::class.java
+            )
+
+            if (
+                BatteryOptimizationHelper
+                    .isBatteryOptimizationEnabled(context)
+            ) {
+
+                BatteryOptimizationHelper
+                    .requestDisableBatteryOptimization(context)
+            }
+
             context.startForegroundService(intent)
 
             _uiState.value = _uiState.value.copy(isTracking = true)
