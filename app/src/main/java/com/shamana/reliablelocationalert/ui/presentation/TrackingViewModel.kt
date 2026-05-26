@@ -54,6 +54,17 @@ class TrackingViewModel @Inject constructor(
 
         viewModelScope.launch {
 
+            if (
+                BatteryOptimizationHelper
+                    .isBatteryOptimizationEnabled(context)
+            ) {
+
+                BatteryOptimizationHelper
+                    .requestDisableBatteryOptimization(context)
+
+                return@launch
+            }
+
             repository.saveSession(
                 TrackingSession(
                     destination = destination,
@@ -68,15 +79,6 @@ class TrackingViewModel @Inject constructor(
                 context,
                 LocationTrackingService::class.java
             )
-
-            if (
-                BatteryOptimizationHelper
-                    .isBatteryOptimizationEnabled(context)
-            ) {
-
-                BatteryOptimizationHelper
-                    .requestDisableBatteryOptimization(context)
-            }
 
             context.startForegroundService(intent)
 

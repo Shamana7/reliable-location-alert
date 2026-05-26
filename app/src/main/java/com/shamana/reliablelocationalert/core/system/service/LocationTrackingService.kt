@@ -4,6 +4,7 @@ import android.Manifest
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -37,6 +38,7 @@ class LocationTrackingService : Service() {
 
     companion object {
         private const val NOTIFICATION_ID = 1001
+        const val ACTION_STOP_TRACKING = "ACTION_STOP_TRACKING"
     }
 
     @Inject
@@ -66,6 +68,18 @@ class LocationTrackingService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+
+        if (intent?.action == ACTION_STOP_TRACKING) {
+
+            serviceScope.launch(Dispatchers.IO) {
+
+                repository.clear()
+            }
+
+            stopSelf()
+
+            return START_NOT_STICKY
+        }
 
         startForeground(
             NOTIFICATION_ID,
@@ -239,16 +253,38 @@ class LocationTrackingService : Service() {
                 "Location Tracking",
                 NotificationManager.IMPORTANCE_LOW
             )
+
             getSystemService(NotificationManager::class.java)
                 .createNotificationChannel(channel)
         }
 
-        return NotificationCompat.Builder(this, channelId)
+        val stopIntent = Intent(
+            this,
+            LocationTrackingService::class.java
+        ).apply {
+            action = ACTION_STOP_TRACKING
+        }
+
+        val stopPendingIntent =
+            PendingIntent.getService(
+                this,
+                100,
+                stopIntent,
+                PendingIntent.FLAG_IMMUTABLE
+            )
+
+        val builder = NotificationCompat.Builder(this, channelId)
             .setContentTitle("Tracking location")
             .setContentText("Active background location tracking")
             .setSmallIcon(android.R.drawable.ic_menu_mylocation)
             .setOngoing(true)
-            .build()
+            .addAction(
+                android.R.drawable.ic_delete,
+                "Stop",
+                stopPendingIntent
+            )
+
+        return builder.build()
     }
 
     override fun onDestroy() {
