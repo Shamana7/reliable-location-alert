@@ -2,10 +2,13 @@ package com.shamana.reliablelocationalert
 
 import android.Manifest
 import android.app.AlarmManager
+import android.app.AlertDialog
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -267,6 +270,19 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+
+        if (hasLocationPermission() &&
+            hasBackgroundLocationPermission()
+        ) {
+
+            pendingDestination?.let { dest ->
+                pendingViewModel?.startTracking(dest)
+            }
+        }
+    }
+
     /* -------------------- Permission Launchers -------------------- */
 
     private val notificationPermissionLauncher =
@@ -286,11 +302,51 @@ class MainActivity : ComponentActivity() {
                         permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
 
             if (granted) {
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+                    !hasBackgroundLocationPermission()
+                ) {
+
+                    requestBackgroundLocationPermission()
+                    return@registerForActivityResult
+                }
+
                 pendingDestination?.let { dest ->
                     pendingViewModel?.startTracking(dest)
                 }
             }
         }
+
+    private val backgroundLocationPermissionLauncher =
+        registerForActivityResult(
+            ActivityResultContracts.RequestPermission()
+        ) { granted ->
+
+            if (granted) {
+
+                pendingDestination?.let { dest ->
+                    pendingViewModel?.startTracking(dest)
+                }
+
+            } else {
+
+                showBackgroundLocationSettingsDialog()
+            }
+        }
+
+    private fun showBackgroundLocationSettingsDialog() {
+
+        AlertDialog.Builder(this)
+            .setTitle("Background Location Required")
+            .setMessage(
+                "Reliable Location Alert needs background location access so tracking continues when the app is minimized or the screen is off.\n\nPlease enable 'Allow all the time' in App Settings."
+            )
+            .setPositiveButton("Open Settings") { _, _ ->
+                openAppSettings()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
 
     /* -------------------- Permission Flow -------------------- */
 
@@ -320,7 +376,17 @@ class MainActivity : ComponentActivity() {
         }
 
         if (hasLocationPermission()) {
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+                !hasBackgroundLocationPermission()
+            ) {
+
+                requestBackgroundLocationPermission()
+                return
+            }
+
             viewModel.startTracking(destination)
+
         } else {
             requestLocationPermission()
         }
@@ -340,6 +406,41 @@ class MainActivity : ComponentActivity() {
                 PackageManager.PERMISSION_GRANTED ||
                 checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) ==
                 PackageManager.PERMISSION_GRANTED
+    }
+
+    private fun hasBackgroundLocationPermission(): Boolean {
+
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+
+            checkSelfPermission(
+                Manifest.permission.ACCESS_BACKGROUND_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+
+        } else {
+            true
+        }
+    }
+
+    private fun requestBackgroundLocationPermission() {
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+
+            backgroundLocationPermissionLauncher.launch(
+                Manifest.permission.ACCESS_BACKGROUND_LOCATION
+            )
+        }
+    }
+
+    private fun openAppSettings() {
+
+        val intent = Intent(
+            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+            Uri.fromParts("package", packageName, null)
+        )
+
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+
+        startActivity(intent)
     }
 
     private fun hasExactAlarmPermission(): Boolean {
