@@ -32,6 +32,7 @@ import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.shamana.reliablelocationalert.core.domain.model.Destination
+import com.shamana.reliablelocationalert.core.domain.model.TrackingState
 import com.shamana.reliablelocationalert.ui.presentation.TrackingViewModel
 import com.shamana.reliablelocationalert.ui.theme.ReliableLocationAlertTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -83,6 +84,12 @@ class MainActivity : ComponentActivity() {
                                 style = androidx.compose.material3.MaterialTheme.typography.headlineSmall,
                                 modifier = Modifier.padding(bottom = 20.dp)
                             )
+
+                            if (uiState.state == TrackingState.TRACKING_DEGRADED) {
+                                Text(
+                                    text = "GPS signal weak. Trying to reconnect..."
+                                )
+                            }
 
                             /* -------------------- Distance Card -------------------- */
 

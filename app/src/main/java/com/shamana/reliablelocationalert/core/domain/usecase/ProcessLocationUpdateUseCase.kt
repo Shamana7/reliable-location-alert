@@ -9,7 +9,19 @@ class ProcessLocationUpdateUseCase(
 ) {
 
     private val buffer = LocationSampleBuffer()
+
     private var nearDestinationCount = 0
+
+    private var poorAccuracyCount = 0
+    private var goodAccuracyCount = 0
+
+    private companion object {
+
+        const val DEGRADED_ACCURACY_METERS = 500f
+
+        const val DEGRADE_SAMPLE_THRESHOLD = 3
+        const val RECOVERY_SAMPLE_THRESHOLD = 3
+    }
 
     fun process(
         sample: LocationSample,
@@ -17,6 +29,28 @@ class ProcessLocationUpdateUseCase(
     ): TrackingState {
 
         buffer.add(sample)
+
+        if (sample.accuracyMeters > DEGRADED_ACCURACY_METERS) {
+            poorAccuracyCount++
+            goodAccuracyCount = 0
+        } else {
+            goodAccuracyCount++
+            poorAccuracyCount = 0
+        }
+
+        if (
+            currentState == TrackingState.TRACKING_ACTIVE &&
+            poorAccuracyCount >= DEGRADE_SAMPLE_THRESHOLD
+        ) {
+            return TrackingState.TRACKING_DEGRADED
+        }
+
+        if (
+            currentState == TrackingState.TRACKING_DEGRADED &&
+            goodAccuracyCount >= RECOVERY_SAMPLE_THRESHOLD
+        ) {
+            return TrackingState.TRACKING_ACTIVE
+        }
 
         if (!buffer.isFull()) {
             return currentState
