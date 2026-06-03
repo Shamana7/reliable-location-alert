@@ -29,6 +29,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
@@ -60,6 +62,8 @@ class LocationTrackingService : Service() {
     private val sampleBuffer = LocationSampleBuffer(5)
     private var activeSession: TrackingSession? = null
     private var startDistance: Float? = null
+
+    private var lastLocationUpdateTime = System.currentTimeMillis()
 
     override fun onCreate() {
         super.onCreate()
@@ -119,6 +123,7 @@ class LocationTrackingService : Service() {
 
         if (!isTrackingActive) {
             startLocationUpdates()
+            startGpsWatchdog()
         }
     }
 
@@ -126,6 +131,26 @@ class LocationTrackingService : Service() {
 
         try {
             locationProvider.start { location ->
+
+                lastLocationUpdateTime = System.currentTimeMillis()
+
+                if (currentState == TrackingState.TRACKING_DEGRADED) {
+
+                    activeSession?.let { session ->
+
+                        val recovered = session.copy(
+                            state = TrackingState.TRACKING_ACTIVE
+                        )
+
+                        activeSession = recovered
+                        currentState = TrackingState.TRACKING_ACTIVE
+
+                        serviceScope.launch(Dispatchers.IO) {
+                            repository.saveSession(recovered)
+                        }
+                    }
+                }
+
                 val sample = LocationSample(
                     latitude = location.latitude,
                     longitude = location.longitude,
@@ -208,6 +233,45 @@ class LocationTrackingService : Service() {
         } catch (e: SecurityException) {
             Log.e("LocationService", "Permission revoked during tracking")
             stopSelf()
+        }
+    }
+
+    private fun startGpsWatchdog() {
+
+        serviceScope.launch {
+
+            while (kotlinx.coroutines.currentCoroutineContext().isActive) {
+
+                delay(30_000)
+
+                val secondsSinceLastUpdate =
+                    (System.currentTimeMillis() - lastLocationUpdateTime) / 1000
+
+                if (
+                    secondsSinceLastUpdate >= 90 &&
+                    currentState != TrackingState.ALERT_TRIGGERED
+                ) {
+
+                    Log.d(
+                        "LocationService",
+                        "No GPS updates for $secondsSinceLastUpdate seconds"
+                    )
+
+                    activeSession?.let { session ->
+
+                        val degraded = session.copy(
+                            state = TrackingState.TRACKING_DEGRADED
+                        )
+
+                        activeSession = degraded
+                        currentState = TrackingState.TRACKING_DEGRADED
+
+                        serviceScope.launch(Dispatchers.IO) {
+                            repository.saveSession(degraded)
+                        }
+                    }
+                }
+            }
         }
     }
 
