@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
@@ -78,6 +79,11 @@ class MainActivity : ComponentActivity() {
 
                         if (uiState.isTracking) {
 
+                            val isWaitingForGps =
+                                uiState.isTracking &&
+                                        uiState.lastLat == null &&
+                                        uiState.lastLng == null
+
                             val screenTitle =
                                 when (uiState.state) {
 
@@ -97,153 +103,182 @@ class MainActivity : ComponentActivity() {
                                 modifier = Modifier.padding(bottom = 20.dp)
                             )
 
-                            if (uiState.state == TrackingState.TRACKING_DEGRADED) {
-                                Text(
-                                    text = "GPS signal weak. Trying to reconnect..."
+                            if (isWaitingForGps) {
+
+                                androidx.compose.material3.Card {
+
+                                    androidx.compose.foundation.layout.Column(
+                                        modifier = Modifier.padding(16.dp)
+                                    ) {
+
+                                        Text(
+                                            text = "📡 Waiting for GPS"
+                                        )
+
+                                        Spacer(
+                                            modifier = Modifier.height(8.dp)
+                                        )
+
+                                        Text(
+                                            text = "Trying to get your current location. This may take a few seconds."
+                                        )
+                                    }
+                                }
+
+                                Spacer(
+                                    modifier = Modifier.height(16.dp)
                                 )
                             }
 
-                            /* -------------------- Distance Card -------------------- */
-
-                            androidx.compose.material3.Card {
-
-                                androidx.compose.foundation.layout.Column(
-                                    modifier = Modifier.padding(20.dp)
-                                ) {
-
+                            if (!isWaitingForGps) {
+                                if (uiState.state == TrackingState.TRACKING_DEGRADED) {
                                     Text(
-                                        text = "Distance Remaining",
-                                        style = androidx.compose.material3.MaterialTheme.typography.labelLarge
-                                    )
-
-                                    androidx.compose.foundation.layout.Spacer(
-                                        modifier = Modifier.height(8.dp)
-                                    )
-
-                                    Text(
-                                        text = "${uiState.distanceMeters?.toInt() ?: "--"} m",
-                                        style = androidx.compose.material3.MaterialTheme.typography.headlineMedium
+                                        text = "GPS signal weak. Trying to reconnect..."
                                     )
                                 }
-                            }
 
-                            androidx.compose.foundation.layout.Spacer(
-                                modifier = Modifier.height(20.dp)
-                            )
+                                /* -------------------- Distance Card -------------------- */
 
-                            /* -------------------- ETA -------------------- */
+                                androidx.compose.material3.Card {
 
-                            Text(
-                                text = "Estimated Arrival",
-                                style = androidx.compose.material3.MaterialTheme.typography.labelLarge
-                            )
+                                    androidx.compose.foundation.layout.Column(
+                                        modifier = Modifier.padding(20.dp)
+                                    ) {
 
-                            val etaText = uiState.etaSeconds?.let { seconds ->
+                                        Text(
+                                            text = "Distance Remaining",
+                                            style = androidx.compose.material3.MaterialTheme.typography.labelLarge
+                                        )
 
-                                val minutes = seconds / 60
-                                val remainingSeconds = seconds % 60
+                                       Spacer(
+                                            modifier = Modifier.height(8.dp)
+                                        )
 
-                                if (minutes == 0L) {
-                                    "$remainingSeconds sec"
-                                } else {
-                                    "$minutes min $remainingSeconds sec"
+                                        Text(
+                                            text = "${uiState.distanceMeters?.toInt() ?: "--"} m",
+                                            style = androidx.compose.material3.MaterialTheme.typography.headlineMedium
+                                        )
+                                    }
                                 }
 
-                            } ?: "--"
-
-                            Text(
-                                text = etaText,
-                                style = androidx.compose.material3.MaterialTheme.typography.headlineSmall,
-                                modifier = Modifier.padding(bottom = 20.dp)
-                            )
-
-                            /* -------------------- Live Location -------------------- */
-
-                            androidx.compose.material3.Card {
-
-                                androidx.compose.foundation.layout.Column(
-                                    modifier = Modifier.padding(16.dp)
-                                ) {
-
-                                    Text(
-                                        text = "Live Location",
-                                        style = androidx.compose.material3.MaterialTheme.typography.labelLarge
-                                    )
-
-                                    androidx.compose.foundation.layout.Spacer(
-                                        modifier = Modifier.height(6.dp)
-                                    )
-
-                                    Text(text = "Lat: ${uiState.lastLat}")
-
-                                    Text(
-                                        text = "Lng: ${uiState.lastLng}"
-                                    )
-                                }
-                            }
-
-                            androidx.compose.foundation.layout.Spacer(
-                                modifier = Modifier.height(20.dp)
-                            )
-
-                            /* -------------------- Progress -------------------- */
-
-                            Text(
-                                text = when (uiState.state) {
-                                    TrackingState.TRACKING_ACTIVE ->
-                                        "Tracking in progress"
-
-                                    TrackingState.TRACKING_DEGRADED ->
-                                        "GPS signal weak"
-
-                                    TrackingState.NEAR_DESTINATION ->
-                                        "Almost there"
-
-                                    TrackingState.ALERT_TRIGGERED ->
-                                        "Destination reached"
-
-                                    else ->
-                                        uiState.state?.name ?: "LATER WE WILL ADD"
-                                },
-                                modifier = Modifier.padding(bottom = 28.dp)
-                            )
-
-                            if (uiState.state == TrackingState.ALERT_TRIGGERED) {
-
-                                Text(
-                                    text = "🎉 Arrived near destination!"
+                                androidx.compose.foundation.layout.Spacer(
+                                    modifier = Modifier.height(20.dp)
                                 )
 
-                                Spacer(modifier = Modifier.height(8.dp))
+                                /* -------------------- ETA -------------------- */
 
                                 Text(
-                                    text = "Tracking completed successfully."
+                                    text = "Estimated Arrival",
+                                    style = androidx.compose.material3.MaterialTheme.typography.labelLarge
                                 )
+
+                                val etaText = uiState.etaSeconds?.let { seconds ->
+
+                                    val minutes = seconds / 60
+                                    val remainingSeconds = seconds % 60
+
+                                    if (minutes == 0L) {
+                                        "$remainingSeconds sec"
+                                    } else {
+                                        "$minutes min $remainingSeconds sec"
+                                    }
+
+                                } ?: "--"
+
+                                Text(
+                                    text = etaText,
+                                    style = androidx.compose.material3.MaterialTheme.typography.headlineSmall,
+                                    modifier = Modifier.padding(bottom = 20.dp)
+                                )
+
+                                /* -------------------- Live Location -------------------- */
+
+                                androidx.compose.material3.Card {
+
+                                    androidx.compose.foundation.layout.Column(
+                                        modifier = Modifier.padding(16.dp)
+                                    ) {
+
+                                        Text(
+                                            text = "Live Location",
+                                            style = androidx.compose.material3.MaterialTheme.typography.labelLarge
+                                        )
+
+                                        Spacer(
+                                            modifier = Modifier.height(6.dp)
+                                        )
+
+                                        Text(text = "Lat: ${uiState.lastLat}")
+
+                                        Text(
+                                            text = "Lng: ${uiState.lastLng}"
+                                        )
+                                    }
+                                }
+
+                                Spacer(
+                                    modifier = Modifier.height(20.dp)
+                                )
+
+                                /* -------------------- Progress -------------------- */
+
+                                Text(
+                                    text = when (uiState.state) {
+                                        TrackingState.TRACKING_ACTIVE ->
+                                            "Tracking in progress"
+
+                                        TrackingState.TRACKING_DEGRADED ->
+                                            "GPS signal weak"
+
+                                        TrackingState.NEAR_DESTINATION ->
+                                            "Almost there"
+
+                                        TrackingState.ALERT_TRIGGERED ->
+                                            "Destination reached"
+
+                                        else ->
+                                            uiState.state?.name ?: ""
+                                    },
+                                    modifier = Modifier.padding(bottom = 28.dp)
+                                )
+
+                                if (uiState.state == TrackingState.ALERT_TRIGGERED) {
+
+                                    Text(
+                                        text = "🎉 Arrived near destination!"
+                                    )
+
+                                    Spacer(modifier = Modifier.height(8.dp))
+
+                                    Text(
+                                        text = "Tracking completed successfully."
+                                    )
+                                }
                             }
 
                         } else {
 
-                            androidx.compose.material3.OutlinedTextField(
+                           OutlinedTextField(
                                 value = latitude,
                                 onValueChange = { latitude = it },
                                 label = { Text("Latitude") }
                             )
 
-                            androidx.compose.foundation.layout.Spacer(
+                          Spacer(
                                 modifier = Modifier.height(12.dp)
                             )
 
-                            androidx.compose.material3.OutlinedTextField(
+                            OutlinedTextField(
                                 value = longitude,
                                 onValueChange = { longitude = it },
                                 label = { Text("Longitude") }
                             )
 
-                            androidx.compose.foundation.layout.Spacer(
+                           Spacer(
                                 modifier = Modifier.height(12.dp)
                             )
 
-                            androidx.compose.material3.OutlinedTextField(
+                           OutlinedTextField(
                                 value = radius,
                                 onValueChange = { radius = it },
                                 label = { Text("Radius (meters)") }
