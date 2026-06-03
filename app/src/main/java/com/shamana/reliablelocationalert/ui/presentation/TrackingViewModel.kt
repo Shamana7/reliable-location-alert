@@ -19,8 +19,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class TrackingViewModel @Inject constructor(
-    private val repository: TrackingRepository,
-    private val application: Application
+    private val repository: TrackingRepository, private val application: Application
 ) : ViewModel() {
 
     private val context = application.applicationContext
@@ -54,13 +53,9 @@ class TrackingViewModel @Inject constructor(
 
         viewModelScope.launch {
 
-            if (
-                BatteryOptimizationHelper
-                    .isBatteryOptimizationEnabled(context)
-            ) {
+            if (BatteryOptimizationHelper.isBatteryOptimizationEnabled(context)) {
 
-                BatteryOptimizationHelper
-                    .requestDisableBatteryOptimization(context)
+                BatteryOptimizationHelper.requestDisableBatteryOptimization(context)
 
                 return@launch
             }
@@ -76,8 +71,7 @@ class TrackingViewModel @Inject constructor(
             )
 
             val intent = Intent(
-                context,
-                LocationTrackingService::class.java
+                context, LocationTrackingService::class.java
             )
 
             context.startForegroundService(intent)
@@ -96,5 +90,11 @@ class TrackingViewModel @Inject constructor(
 
             _uiState.value = _uiState.value.copy(isTracking = false)
         }
+    }
+
+    fun showError(message: String) {
+        _uiState.value = _uiState.value.copy(
+            errorMessage = message
+        )
     }
 }

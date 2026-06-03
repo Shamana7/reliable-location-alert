@@ -8,5 +8,6 @@ data class TrackingUiState(
     val lastLng: Double? = null,
     val distanceMeters: Float? = null,
     val etaSeconds: Long? = null,
-    val progress: Float? = null
+    val progress: Float? = null,
+    val errorMessage: String? = null
 )

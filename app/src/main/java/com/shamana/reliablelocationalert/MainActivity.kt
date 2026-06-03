@@ -14,11 +14,13 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -69,7 +71,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize()
                 ) { innerPadding ->
 
-                    androidx.compose.foundation.layout.Column(
+                    Column(
                         modifier = Modifier
                             .padding(innerPadding)
                             .fillMaxSize()
@@ -80,22 +82,16 @@ class MainActivity : ComponentActivity() {
                         if (uiState.isTracking) {
 
                             val isWaitingForGps =
-                                uiState.isTracking &&
-                                        uiState.lastLat == null &&
-                                        uiState.lastLng == null
+                                uiState.isTracking && uiState.lastLat == null && uiState.lastLng == null
 
-                            val screenTitle =
-                                when (uiState.state) {
+                            val screenTitle = when (uiState.state) {
 
-                                    TrackingState.ALERT_TRIGGERED ->
-                                        "Destination Reached"
+                                TrackingState.ALERT_TRIGGERED -> "Destination Reached"
 
-                                    TrackingState.TRACKING_DEGRADED ->
-                                        "GPS Signal Weak"
+                                TrackingState.TRACKING_DEGRADED -> "GPS Signal Weak"
 
-                                    else ->
-                                        "Tracking Active"
-                                }
+                                else -> "Tracking Active"
+                            }
 
                             Text(
                                 text = screenTitle,
@@ -105,9 +101,9 @@ class MainActivity : ComponentActivity() {
 
                             if (isWaitingForGps) {
 
-                                androidx.compose.material3.Card {
+                                Card {
 
-                                    androidx.compose.foundation.layout.Column(
+                                    Column(
                                         modifier = Modifier.padding(16.dp)
                                     ) {
 
@@ -139,9 +135,9 @@ class MainActivity : ComponentActivity() {
 
                                 /* -------------------- Distance Card -------------------- */
 
-                                androidx.compose.material3.Card {
+                                Card {
 
-                                    androidx.compose.foundation.layout.Column(
+                                    Column(
                                         modifier = Modifier.padding(20.dp)
                                     ) {
 
@@ -150,7 +146,7 @@ class MainActivity : ComponentActivity() {
                                             style = androidx.compose.material3.MaterialTheme.typography.labelLarge
                                         )
 
-                                       Spacer(
+                                        Spacer(
                                             modifier = Modifier.height(8.dp)
                                         )
 
@@ -161,7 +157,7 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
 
-                                androidx.compose.foundation.layout.Spacer(
+                                Spacer(
                                     modifier = Modifier.height(20.dp)
                                 )
 
@@ -193,9 +189,9 @@ class MainActivity : ComponentActivity() {
 
                                 /* -------------------- Live Location -------------------- */
 
-                                androidx.compose.material3.Card {
+                                Card {
 
-                                    androidx.compose.foundation.layout.Column(
+                                    Column(
                                         modifier = Modifier.padding(16.dp)
                                     ) {
 
@@ -224,22 +220,16 @@ class MainActivity : ComponentActivity() {
 
                                 Text(
                                     text = when (uiState.state) {
-                                        TrackingState.TRACKING_ACTIVE ->
-                                            "Tracking in progress"
+                                        TrackingState.TRACKING_ACTIVE -> "Tracking in progress"
 
-                                        TrackingState.TRACKING_DEGRADED ->
-                                            "GPS signal weak"
+                                        TrackingState.TRACKING_DEGRADED -> "GPS signal weak"
 
-                                        TrackingState.NEAR_DESTINATION ->
-                                            "Almost there"
+                                        TrackingState.NEAR_DESTINATION -> "Almost there"
 
-                                        TrackingState.ALERT_TRIGGERED ->
-                                            "Destination reached"
+                                        TrackingState.ALERT_TRIGGERED -> "Destination reached"
 
-                                        else ->
-                                            uiState.state?.name ?: ""
-                                    },
-                                    modifier = Modifier.padding(bottom = 28.dp)
+                                        else -> uiState.state?.name ?: ""
+                                    }, modifier = Modifier.padding(bottom = 28.dp)
                                 )
 
                                 if (uiState.state == TrackingState.ALERT_TRIGGERED) {
@@ -258,36 +248,57 @@ class MainActivity : ComponentActivity() {
 
                         } else {
 
-                           OutlinedTextField(
+                            uiState.errorMessage?.let { error ->
+
+                                Card {
+
+                                    Column(
+                                        modifier = Modifier.padding(16.dp)
+                                    ) {
+
+                                        Text(
+                                            text = "⚠️ Permission Required"
+                                        )
+
+                                        Spacer(
+                                            modifier = Modifier.height(8.dp)
+                                        )
+
+                                        Text(error)
+                                    }
+                                }
+
+                                Spacer(
+                                    modifier = Modifier.height(12.dp)
+                                )
+                            }
+
+                            OutlinedTextField(
                                 value = latitude,
                                 onValueChange = { latitude = it },
-                                label = { Text("Latitude") }
-                            )
+                                label = { Text("Latitude") })
 
-                          Spacer(
+                            Spacer(
                                 modifier = Modifier.height(12.dp)
                             )
 
                             OutlinedTextField(
                                 value = longitude,
                                 onValueChange = { longitude = it },
-                                label = { Text("Longitude") }
-                            )
+                                label = { Text("Longitude") })
 
-                           Spacer(
+                            Spacer(
                                 modifier = Modifier.height(12.dp)
                             )
 
-                           OutlinedTextField(
+                            OutlinedTextField(
                                 value = radius,
                                 onValueChange = { radius = it },
-                                label = { Text("Radius (meters)") }
-                            )
+                                label = { Text("Radius (meters)") })
                         }
 
                         Button(
-                            modifier = Modifier.padding(top = 20.dp),
-                            onClick = {
+                            modifier = Modifier.padding(top = 20.dp), onClick = {
 
                                 if (uiState.isTracking) {
 
@@ -306,21 +317,16 @@ class MainActivity : ComponentActivity() {
                                     }
 
                                     val dest = Destination(
-                                        latitude = lat,
-                                        longitude = lng,
-                                        alertRadiusMeters = rad
+                                        latitude = lat, longitude = lng, alertRadiusMeters = rad
                                     )
 
                                     checkPermissionsAndStart(viewModel, dest)
                                 }
-                            }
-                        ) {
+                            }) {
 
                             Text(
-                                if (uiState.isTracking)
-                                    "Stop Tracking"
-                                else
-                                    "Start Tracking"
+                                if (uiState.isTracking) "Stop Tracking"
+                                else "Start Tracking"
                             )
                         }
                     }
@@ -332,9 +338,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
 
-        if (hasLocationPermission() &&
-            hasBackgroundLocationPermission()
-        ) {
+        if (hasLocationPermission() && hasBackgroundLocationPermission()) {
 
             pendingDestination?.let { dest ->
                 pendingViewModel?.startTracking(dest)
@@ -344,83 +348,80 @@ class MainActivity : ComponentActivity() {
 
     /* -------------------- Permission Launchers -------------------- */
 
-    private val notificationPermissionLauncher =
-        registerForActivityResult(
-            ActivityResultContracts.RequestPermission()
-        ) { granted ->
-            if (granted) requestLocationPermission()
+    private val notificationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+
+        if (granted) {
+            requestLocationPermission()
+        } else {
+            pendingViewModel?.showError(
+                "Notification permission is required for arrival alerts."
+            )
         }
+    }
 
-    private val locationPermissionLauncher =
-        registerForActivityResult(
-            ActivityResultContracts.RequestMultiplePermissions()
-        ) { permissions ->
+    private val locationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
 
-            val granted =
-                permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
-                        permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+        val granted =
+            permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true || permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
 
-            if (granted) {
+        if (granted) {
 
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
-                    !hasBackgroundLocationPermission()
-                ) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && !hasBackgroundLocationPermission()) {
 
-                    requestBackgroundLocationPermission()
-                    return@registerForActivityResult
-                }
-
-                pendingDestination?.let { dest ->
-                    pendingViewModel?.startTracking(dest)
-                }
+                requestBackgroundLocationPermission()
+                return@registerForActivityResult
             }
-        }
 
-    private val backgroundLocationPermissionLauncher =
-        registerForActivityResult(
-            ActivityResultContracts.RequestPermission()
-        ) { granted ->
-
-            if (granted) {
-
-                pendingDestination?.let { dest ->
-                    pendingViewModel?.startTracking(dest)
-                }
-
-            } else {
-
-                showBackgroundLocationSettingsDialog()
+            pendingDestination?.let { dest ->
+                pendingViewModel?.startTracking(dest)
             }
+        } else {
+
+            pendingViewModel?.showError(
+                "Location permission is required to start tracking."
+            )
         }
+    }
+
+    private val backgroundLocationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+
+        if (granted) {
+
+            pendingDestination?.let { dest ->
+                pendingViewModel?.startTracking(dest)
+            }
+
+        } else {
+            showBackgroundLocationSettingsDialog()
+        }
+    }
 
     private fun showBackgroundLocationSettingsDialog() {
 
-        AlertDialog.Builder(this)
-            .setTitle("Background Location Required")
-            .setMessage(
+        AlertDialog.Builder(this).setTitle("Background Location Required").setMessage(
                 "Reliable Location Alert needs background location access so tracking continues when the app is minimized or the screen is off.\n\nPlease enable 'Allow all the time' in App Settings."
-            )
-            .setPositiveButton("Open Settings") { _, _ ->
+            ).setPositiveButton("Open Settings") { _, _ ->
                 openAppSettings()
-            }
-            .setNegativeButton("Cancel", null)
-            .show()
+            }.setNegativeButton("Cancel", null).show()
     }
 
     /* -------------------- Permission Flow -------------------- */
 
     private fun checkPermissionsAndStart(
-        viewModel: TrackingViewModel,
-        destination: Destination
+        viewModel: TrackingViewModel, destination: Destination
     ) {
 
         pendingViewModel = viewModel
         pendingDestination = destination
 
-        if (Build.VERSION.SDK_INT >= 33 &&
-            ContextCompat.checkSelfPermission(
-                this,
-                Manifest.permission.POST_NOTIFICATIONS
+        if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(
+                this, Manifest.permission.POST_NOTIFICATIONS
             ) != PackageManager.PERMISSION_GRANTED
         ) {
             notificationPermissionLauncher.launch(
@@ -436,9 +437,7 @@ class MainActivity : ComponentActivity() {
 
         if (hasLocationPermission()) {
 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
-                !hasBackgroundLocationPermission()
-            ) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && !hasBackgroundLocationPermission()) {
 
                 requestBackgroundLocationPermission()
                 return
@@ -454,17 +453,15 @@ class MainActivity : ComponentActivity() {
     private fun requestLocationPermission() {
         locationPermissionLauncher.launch(
             arrayOf(
-                Manifest.permission.ACCESS_FINE_LOCATION,
-                Manifest.permission.ACCESS_COARSE_LOCATION
+                Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION
             )
         )
     }
 
     private fun hasLocationPermission(): Boolean {
-        return checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) ==
-                PackageManager.PERMISSION_GRANTED ||
-                checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) ==
-                PackageManager.PERMISSION_GRANTED
+        return checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED || checkSelfPermission(
+            Manifest.permission.ACCESS_COARSE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
     }
 
     private fun hasBackgroundLocationPermission(): Boolean {
@@ -504,8 +501,7 @@ class MainActivity : ComponentActivity() {
 
     private fun hasExactAlarmPermission(): Boolean {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val alarmManager =
-                getSystemService(ALARM_SERVICE) as AlarmManager
+            val alarmManager = getSystemService(ALARM_SERVICE) as AlarmManager
             return alarmManager.canScheduleExactAlarms()
         }
         return true
