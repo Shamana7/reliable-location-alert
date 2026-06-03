@@ -157,8 +157,19 @@ class LocationTrackingService : Service() {
                         distance,
                         sampleBuffer.samples()
                     )
+
+                    val finalState =
+                        if (
+                            newState == TrackingState.NEAR_DESTINATION &&
+                            scheduleArrivalAlert()
+                        ) {
+                            TrackingState.ALERT_TRIGGERED
+                        } else {
+                            newState
+                        }
+
                     val updated = session.copy(
-                        state = newState,
+                        state = finalState,
                         lastKnownLatitude = sample.latitude,
                         lastKnownLongitude = sample.longitude,
                         lastUpdatedAt = System.currentTimeMillis(),
@@ -172,40 +183,23 @@ class LocationTrackingService : Service() {
                     serviceScope.launch(Dispatchers.IO) {
                         repository.saveSession(updated)
                     }
-                }
+                    if (finalState != currentState) {
 
-                if (newState != currentState) {
+                        Log.d(
+                            "LocationService",
+                            "State changed: $currentState → $finalState"
+                        )
 
-                    Log.d("LocationService", "State changed: $currentState → $newState")
+                        currentState = finalState
 
-                    if (newState == TrackingState.NEAR_DESTINATION) {
+                        if (finalState == TrackingState.ALERT_TRIGGERED) {
 
-                        val scheduled = scheduleArrivalAlert()
-
-                        if (scheduled) {
-
-                            activeSession?.let { session ->
-
-                                val completed = session.copy(
-                                    state = TrackingState.COMPLETED
-                                )
-
-                                activeSession = completed
-
-                                serviceScope.launch(Dispatchers.IO) {
-                                    repository.saveSession(completed)
-                                }
-                            }
-
-                            currentState = TrackingState.COMPLETED
                             locationProvider.stop()
                             stopSelf()
                         }
-
-                    } else {
-                        currentState = newState
                     }
                 }
+
             }
 
             isTrackingActive = true

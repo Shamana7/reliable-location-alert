@@ -14,12 +14,11 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
@@ -79,8 +78,21 @@ class MainActivity : ComponentActivity() {
 
                         if (uiState.isTracking) {
 
+                            val screenTitle =
+                                when (uiState.state) {
+
+                                    TrackingState.ALERT_TRIGGERED ->
+                                        "Destination Reached"
+
+                                    TrackingState.TRACKING_DEGRADED ->
+                                        "GPS Signal Weak"
+
+                                    else ->
+                                        "Tracking Active"
+                                }
+
                             Text(
-                                text = "Tracking Active",
+                                text = screenTitle,
                                 style = androidx.compose.material3.MaterialTheme.typography.headlineSmall,
                                 modifier = Modifier.padding(bottom = 20.dp)
                             )
@@ -176,33 +188,38 @@ class MainActivity : ComponentActivity() {
 
                             /* -------------------- Progress -------------------- */
 
-                            val progressPercent =
-                                (uiState.progress?.times(100))?.toInt() ?: 0
-
                             Text(
-                                text = "Progress $progressPercent%",
-                                style = androidx.compose.material3.MaterialTheme.typography.labelLarge
-                            )
+                                text = when (uiState.state) {
+                                    TrackingState.TRACKING_ACTIVE ->
+                                        "Tracking in progress"
 
-                            androidx.compose.foundation.layout.Spacer(
-                                modifier = Modifier.height(8.dp)
-                            )
+                                    TrackingState.TRACKING_DEGRADED ->
+                                        "GPS signal weak"
 
-                            LinearProgressIndicator(
-                                progress = { uiState.progress ?: 0f },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 8.dp)
-                            )
+                                    TrackingState.NEAR_DESTINATION ->
+                                        "Almost there"
 
-                            androidx.compose.foundation.layout.Spacer(
-                                modifier = Modifier.height(16.dp)
-                            )
+                                    TrackingState.ALERT_TRIGGERED ->
+                                        "Destination reached"
 
-                            Text(
-                                text = "Current State: ${uiState.state}",
+                                    else ->
+                                        uiState.state?.name ?: "LATER WE WILL ADD"
+                                },
                                 modifier = Modifier.padding(bottom = 28.dp)
                             )
+
+                            if (uiState.state == TrackingState.ALERT_TRIGGERED) {
+
+                                Text(
+                                    text = "🎉 Arrived near destination!"
+                                )
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                Text(
+                                    text = "Tracking completed successfully."
+                                )
+                            }
 
                         } else {
 
