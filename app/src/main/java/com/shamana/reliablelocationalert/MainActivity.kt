@@ -1,18 +1,9 @@
 package com.shamana.reliablelocationalert
 
-import android.Manifest
-import android.app.AlarmManager
-import android.app.AlertDialog
-import android.content.Intent
-import android.content.pm.PackageManager
-import android.net.Uri
-import android.os.Build
 import android.os.Bundle
-import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -30,25 +21,27 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.shamana.reliablelocationalert.core.domain.model.Destination
 import com.shamana.reliablelocationalert.core.domain.model.TrackingState
+import com.shamana.reliablelocationalert.core.system.permission.PermissionManager
+import com.shamana.reliablelocationalert.core.system.permission.PermissionState
 import com.shamana.reliablelocationalert.ui.presentation.TrackingViewModel
 import com.shamana.reliablelocationalert.ui.theme.ReliableLocationAlertTheme
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
-    private var pendingViewModel: TrackingViewModel? = null
-    private var pendingDestination: Destination? = null
-
-    private var waitingForPermissionResult = false
+    @Inject
+    lateinit var permissionManager: PermissionManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        permissionManager.register(this)
 
         enableEdgeToEdge()
         setContent {
@@ -57,14 +50,27 @@ class MainActivity : ComponentActivity() {
                 val viewModel: TrackingViewModel = hiltViewModel()
                 val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
+                permissionManager.onResult = { state ->
+                    when (state) {
+                        is PermissionState.ReadyToTrack -> {
+                            viewModel.startTracking(state.destination)
+                        }
+                        is PermissionState.Denied -> {
+                            viewModel.showError(state.message)
+                        }
+                        is PermissionState.NeedsBackgroundLocationSettings -> {
+                        }
+                        is PermissionState.NeedsExactAlarmSettings -> {
+                        }
+                    }
+                }
+
                 var latitude by remember(uiState.destination) {
                     mutableStateOf(uiState.destination?.latitude?.toString() ?: "")
                 }
-
                 var longitude by remember(uiState.destination) {
                     mutableStateOf(uiState.destination?.longitude?.toString() ?: "")
                 }
-
                 var radius by remember(uiState.destination) {
                     mutableStateOf(uiState.destination?.alertRadiusMeters?.toString() ?: "200")
                 }
@@ -87,11 +93,8 @@ class MainActivity : ComponentActivity() {
                                 uiState.isTracking && uiState.lastLat == null && uiState.lastLng == null
 
                             val screenTitle = when (uiState.state) {
-
                                 TrackingState.ALERT_TRIGGERED -> "Destination Reached"
-
                                 TrackingState.TRACKING_DEGRADED -> "GPS Signal Weak"
-
                                 else -> "Tracking Active"
                             }
 
@@ -102,75 +105,42 @@ class MainActivity : ComponentActivity() {
                             )
 
                             if (isWaitingForGps) {
-
                                 Card {
-
-                                    Column(
-                                        modifier = Modifier.padding(16.dp)
-                                    ) {
-
-                                        Text(
-                                            text = "📡 Waiting for GPS"
-                                        )
-
-                                        Spacer(
-                                            modifier = Modifier.height(8.dp)
-                                        )
-
-                                        Text(
-                                            text = "Trying to get your current location. This may take a few seconds."
-                                        )
+                                    Column(modifier = Modifier.padding(16.dp)) {
+                                        Text(text = "📡 Waiting for GPS")
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Text(text = "Trying to get your current location. This may take a few seconds.")
                                     }
                                 }
-
-                                Spacer(
-                                    modifier = Modifier.height(16.dp)
-                                )
+                                Spacer(modifier = Modifier.height(16.dp))
                             }
 
                             if (!isWaitingForGps) {
+
                                 if (uiState.state == TrackingState.TRACKING_DEGRADED) {
-                                    Text(
-                                        text = "GPS signal weak. Trying to reconnect..."
-                                    )
+                                    Text(text = "GPS signal weak. Trying to reconnect...")
                                 }
 
                                 /* -------------------- Distance Card -------------------- */
 
                                 Card {
-
-                                    Column(
-                                        modifier = Modifier.padding(20.dp)
-                                    ) {
-
+                                    Column(modifier = Modifier.padding(20.dp)) {
                                         Text(
                                             text = "Distance Remaining",
                                             style = androidx.compose.material3.MaterialTheme.typography.labelLarge
                                         )
-
-                                        Spacer(
-                                            modifier = Modifier.height(8.dp)
-                                        )
-
+                                        Spacer(modifier = Modifier.height(8.dp))
                                         Text(
-                                            text =
-//                                                "${uiState.distanceMeters?.toInt() ?: "--"} m",
-                                                if (
-                                                    uiState.distanceMeters == null ||
-                                                    uiState.distanceMeters == Float.MAX_VALUE
-                                                ) {
-                                                    "--"
-                                                } else {
-                                                    "${uiState.distanceMeters?.toInt()} m"
-                                                },
+                                            text = if (
+                                                uiState.distanceMeters == null ||
+                                                uiState.distanceMeters == Float.MAX_VALUE
+                                            ) "--" else "${uiState.distanceMeters?.toInt()} m",
                                             style = androidx.compose.material3.MaterialTheme.typography.headlineMedium
                                         )
                                     }
                                 }
 
-                                Spacer(
-                                    modifier = Modifier.height(20.dp)
-                                )
+                                Spacer(modifier = Modifier.height(20.dp))
 
                                 /* -------------------- ETA -------------------- */
 
@@ -180,16 +150,10 @@ class MainActivity : ComponentActivity() {
                                 )
 
                                 val etaText = uiState.etaSeconds?.let { seconds ->
-
                                     val minutes = seconds / 60
                                     val remainingSeconds = seconds % 60
-
-                                    if (minutes == 0L) {
-                                        "$remainingSeconds sec"
-                                    } else {
-                                        "$minutes min $remainingSeconds sec"
-                                    }
-
+                                    if (minutes == 0L) "$remainingSeconds sec"
+                                    else "$minutes min $remainingSeconds sec"
                                 } ?: "--"
 
                                 Text(
@@ -201,143 +165,100 @@ class MainActivity : ComponentActivity() {
                                 /* -------------------- Live Location -------------------- */
 
                                 Card {
-
-                                    Column(
-                                        modifier = Modifier.padding(16.dp)
-                                    ) {
-
+                                    Column(modifier = Modifier.padding(16.dp)) {
                                         Text(
                                             text = "Live Location",
                                             style = androidx.compose.material3.MaterialTheme.typography.labelLarge
                                         )
-
-                                        Spacer(
-                                            modifier = Modifier.height(6.dp)
-                                        )
-
+                                        Spacer(modifier = Modifier.height(6.dp))
                                         Text(text = "Lat: ${uiState.lastLat}")
-
-                                        Text(
-                                            text = "Lng: ${uiState.lastLng}"
-                                        )
+                                        Text(text = "Lng: ${uiState.lastLng}")
                                     }
                                 }
 
-                                Spacer(
-                                    modifier = Modifier.height(20.dp)
-                                )
+                                Spacer(modifier = Modifier.height(20.dp))
 
                                 /* -------------------- Progress -------------------- */
 
                                 Text(
                                     text = when (uiState.state) {
                                         TrackingState.TRACKING_ACTIVE -> "Tracking in progress"
-
                                         TrackingState.TRACKING_DEGRADED -> "GPS signal weak"
-
                                         TrackingState.NEAR_DESTINATION -> "Almost there"
-
                                         TrackingState.ALERT_TRIGGERED -> "Destination reached"
-
                                         else -> uiState.state?.name ?: ""
-                                    }, modifier = Modifier.padding(bottom = 28.dp)
+                                    },
+                                    modifier = Modifier.padding(bottom = 28.dp)
                                 )
 
                                 if (uiState.state == TrackingState.ALERT_TRIGGERED) {
-
-                                    Text(
-                                        text = "🎉 Arrived near destination!"
-                                    )
-
+                                    Text(text = "🎉 Arrived near destination!")
                                     Spacer(modifier = Modifier.height(8.dp))
-
-                                    Text(
-                                        text = "Tracking completed successfully."
-                                    )
+                                    Text(text = "Tracking completed successfully.")
                                 }
                             }
 
                         } else {
 
                             uiState.errorMessage?.let { error ->
-
                                 Card {
-
-                                    Column(
-                                        modifier = Modifier.padding(16.dp)
-                                    ) {
-
-                                        Text(
-                                            text = "⚠️ Permission Required"
-                                        )
-
-                                        Spacer(
-                                            modifier = Modifier.height(8.dp)
-                                        )
-
+                                    Column(modifier = Modifier.padding(16.dp)) {
+                                        Text(text = "⚠️ Permission Required")
+                                        Spacer(modifier = Modifier.height(8.dp))
                                         Text(error)
                                     }
                                 }
-
-                                Spacer(
-                                    modifier = Modifier.height(12.dp)
-                                )
+                                Spacer(modifier = Modifier.height(12.dp))
                             }
 
                             OutlinedTextField(
                                 value = latitude,
                                 onValueChange = { latitude = it },
-                                label = { Text("Latitude") })
-
-                            Spacer(
-                                modifier = Modifier.height(12.dp)
+                                label = { Text("Latitude") }
                             )
+
+                            Spacer(modifier = Modifier.height(12.dp))
 
                             OutlinedTextField(
                                 value = longitude,
                                 onValueChange = { longitude = it },
-                                label = { Text("Longitude") })
-
-                            Spacer(
-                                modifier = Modifier.height(12.dp)
+                                label = { Text("Longitude") }
                             )
+
+                            Spacer(modifier = Modifier.height(12.dp))
 
                             OutlinedTextField(
                                 value = radius,
                                 onValueChange = { radius = it },
-                                label = { Text("Radius (meters)") })
+                                label = { Text("Radius (meters)") }
+                            )
                         }
 
                         Button(
-                            modifier = Modifier.padding(top = 20.dp), onClick = {
-
+                            modifier = Modifier.padding(top = 20.dp),
+                            onClick = {
                                 if (uiState.isTracking) {
-
                                     viewModel.stopTracking()
-
                                 } else {
-
                                     if (latitude.isBlank() || longitude.isBlank()) return@Button
 
                                     val lat = latitude.toDoubleOrNull()
                                     val lng = longitude.toDoubleOrNull()
                                     val rad = radius.toFloatOrNull()
 
-                                    if (lat == null || lng == null || rad == null) {
-                                        return@Button
-                                    }
+                                    if (lat == null || lng == null || rad == null) return@Button
 
                                     val dest = Destination(
-                                        latitude = lat, longitude = lng, alertRadiusMeters = rad
+                                        latitude = lat,
+                                        longitude = lng,
+                                        alertRadiusMeters = rad
                                     )
 
-                                    checkPermissionsAndStart(viewModel, dest)
+                                    permissionManager.requestAll(dest, this@MainActivity)
                                 }
-                            }) {
-                            Text(
-                                if (uiState.isTracking) "Stop Tracking"
-                                else "Start Tracking"
-                            )
+                            }
+                        ) {
+                            Text(if (uiState.isTracking) "Stop Tracking" else "Start Tracking")
                         }
                     }
                 }
@@ -347,202 +268,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-
-        if (!waitingForPermissionResult) return
-
-        waitingForPermissionResult = false
-
-        if (
-            hasLocationPermission() &&
-            hasBackgroundLocationPermission()
-        ) {
-            pendingDestination?.let { dest ->
-                pendingViewModel?.startTracking(dest)
-                pendingDestination = null
-                pendingViewModel = null
-            }
-        }
-    }
-
-    /* -------------------- Permission Launchers -------------------- */
-
-    private val notificationPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-
-        if (granted) {
-            requestLocationPermission()
-        } else {
-            pendingViewModel?.showError(
-                "Notification permission is required for arrival alerts."
-            )
-        }
-    }
-
-    private val locationPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
-    ) { permissions ->
-
-        val granted =
-            permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true || permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
-
-        if (granted) {
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && !hasBackgroundLocationPermission()) {
-
-                requestBackgroundLocationPermission()
-                return@registerForActivityResult
-            }
-
-            pendingDestination?.let { dest ->
-                pendingViewModel?.startTracking(dest)
-            }
-        } else {
-
-            pendingViewModel?.showError(
-                "Location permission is required to start tracking."
-            )
-        }
-    }
-
-    private val backgroundLocationPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-
-        if (granted) {
-
-            pendingDestination?.let { dest ->
-                pendingViewModel?.startTracking(dest)
-            }
-
-        } else {
-            showBackgroundLocationSettingsDialog()
-        }
-    }
-
-    private fun showBackgroundLocationSettingsDialog() {
-
-        AlertDialog.Builder(this)
-            .setTitle("Background Location Required")
-            .setMessage(
-                "Reliable Location Alert needs background location access to continue tracking\n\n" +
-                        "Please follow these steps:\n\n" +
-                        "1. Tap Permissions\n" +
-                        "2. Tap Location\n" +
-                        "3. Select 'Allow all the time'\n\n" +
-                        "Then return to the app."
-            )
-            .setPositiveButton("Open Settings") { _, _ ->
-                openAppSettings()
-            }
-            .setNegativeButton("Cancel", null)
-            .show()
-    }
-
-    /* -------------------- Permission Flow -------------------- */
-
-    private fun checkPermissionsAndStart(
-        viewModel: TrackingViewModel, destination: Destination
-    ) {
-
-        pendingViewModel = viewModel
-        pendingDestination = destination
-
-        if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(
-                this, Manifest.permission.POST_NOTIFICATIONS
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
-            notificationPermissionLauncher.launch(
-                Manifest.permission.POST_NOTIFICATIONS
-            )
-            return
-        }
-
-        if (!hasExactAlarmPermission()) {
-            requestExactAlarmPermission()
-            return
-        }
-
-        if (hasLocationPermission()) {
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && !hasBackgroundLocationPermission()) {
-
-                requestBackgroundLocationPermission()
-                return
-            }
-
-            viewModel.startTracking(destination)
-
-        } else {
-            requestLocationPermission()
-        }
-    }
-
-    private fun requestLocationPermission() {
-        locationPermissionLauncher.launch(
-            arrayOf(
-                Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION
-            )
-        )
-    }
-
-    private fun hasLocationPermission(): Boolean {
-        return checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED || checkSelfPermission(
-            Manifest.permission.ACCESS_COARSE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
-    }
-
-    private fun hasBackgroundLocationPermission(): Boolean {
-
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-
-            checkSelfPermission(
-                Manifest.permission.ACCESS_BACKGROUND_LOCATION
-            ) == PackageManager.PERMISSION_GRANTED
-
-        } else {
-            true
-        }
-    }
-
-    private fun requestBackgroundLocationPermission() {
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-
-            backgroundLocationPermissionLauncher.launch(
-                Manifest.permission.ACCESS_BACKGROUND_LOCATION
-            )
-        }
-    }
-
-    private fun openAppSettings() {
-
-        waitingForPermissionResult = true
-
-        val intent = Intent(
-            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-            Uri.fromParts("package", packageName, null)
-        )
-
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-
-        startActivity(intent)
-    }
-
-    private fun hasExactAlarmPermission(): Boolean {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val alarmManager = getSystemService(ALARM_SERVICE) as AlarmManager
-            return alarmManager.canScheduleExactAlarms()
-        }
-        return true
-    }
-
-    private fun requestExactAlarmPermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val intent = Intent(
-                android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM
-            )
-            startActivity(intent)
-        }
+        permissionManager.onActivityResumed(this)
     }
 }
