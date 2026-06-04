@@ -74,7 +74,16 @@ class TrackingViewModel @Inject constructor(
                 context, LocationTrackingService::class.java
             )
 
-            context.startForegroundService(intent)
+            try {
+                context.startForegroundService(intent)
+            } catch (e: SecurityException) {
+
+                showError(
+                    "Location permission was revoked. Please grant permission again."
+                )
+
+                return@launch
+            }
 
             _uiState.value = _uiState.value.copy(isTracking = true)
         }

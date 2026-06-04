@@ -85,15 +85,26 @@ class LocationTrackingService : Service() {
             return START_NOT_STICKY
         }
 
+        if (!hasLocationPermission()) {
+
+            Log.e(
+                "LocationService",
+                "Location permission missing. Stopping service."
+            )
+
+            serviceScope.launch(Dispatchers.IO) {
+                repository.clear()
+            }
+
+            stopSelf()
+
+            return START_NOT_STICKY
+        }
+
         startForeground(
             NOTIFICATION_ID,
             createNotification()
         )
-
-        if (!hasLocationPermission()) {
-            stopSelf()
-            return START_NOT_STICKY
-        }
 
         serviceScope.launch {
 

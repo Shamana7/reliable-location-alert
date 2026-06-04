@@ -45,6 +45,8 @@ class MainActivity : ComponentActivity() {
     private var pendingViewModel: TrackingViewModel? = null
     private var pendingDestination: Destination? = null
 
+    private var waitingForPermissionResult = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -151,7 +153,16 @@ class MainActivity : ComponentActivity() {
                                         )
 
                                         Text(
-                                            text = "${uiState.distanceMeters?.toInt() ?: "--"} m",
+                                            text =
+//                                                "${uiState.distanceMeters?.toInt() ?: "--"} m",
+                                                if (
+                                                    uiState.distanceMeters == null ||
+                                                    uiState.distanceMeters == Float.MAX_VALUE
+                                                ) {
+                                                    "--"
+                                                } else {
+                                                    "${uiState.distanceMeters?.toInt()} m"
+                                                },
                                             style = androidx.compose.material3.MaterialTheme.typography.headlineMedium
                                         )
                                     }
@@ -323,7 +334,6 @@ class MainActivity : ComponentActivity() {
                                     checkPermissionsAndStart(viewModel, dest)
                                 }
                             }) {
-
                             Text(
                                 if (uiState.isTracking) "Stop Tracking"
                                 else "Start Tracking"
@@ -338,10 +348,18 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
 
-        if (hasLocationPermission() && hasBackgroundLocationPermission()) {
+        if (!waitingForPermissionResult) return
 
+        waitingForPermissionResult = false
+
+        if (
+            hasLocationPermission() &&
+            hasBackgroundLocationPermission()
+        ) {
             pendingDestination?.let { dest ->
                 pendingViewModel?.startTracking(dest)
+                pendingDestination = null
+                pendingViewModel = null
             }
         }
     }
@@ -404,11 +422,21 @@ class MainActivity : ComponentActivity() {
 
     private fun showBackgroundLocationSettingsDialog() {
 
-        AlertDialog.Builder(this).setTitle("Background Location Required").setMessage(
-                "Reliable Location Alert needs background location access so tracking continues when the app is minimized or the screen is off.\n\nPlease enable 'Allow all the time' in App Settings."
-            ).setPositiveButton("Open Settings") { _, _ ->
+        AlertDialog.Builder(this)
+            .setTitle("Background Location Required")
+            .setMessage(
+                "Reliable Location Alert needs background location access to continue tracking\n\n" +
+                        "Please follow these steps:\n\n" +
+                        "1. Tap Permissions\n" +
+                        "2. Tap Location\n" +
+                        "3. Select 'Allow all the time'\n\n" +
+                        "Then return to the app."
+            )
+            .setPositiveButton("Open Settings") { _, _ ->
                 openAppSettings()
-            }.setNegativeButton("Cancel", null).show()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 
     /* -------------------- Permission Flow -------------------- */
@@ -488,6 +516,8 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun openAppSettings() {
+
+        waitingForPermissionResult = true
 
         val intent = Intent(
             Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
