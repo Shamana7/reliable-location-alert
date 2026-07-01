@@ -189,10 +189,15 @@ class LocationTrackingService : Service() {
                         if (start > 0f) ((start - distance) / start).coerceIn(0f, 1f) else 0f
                     }
 
-                    val eta = EtaEstimator.estimateSeconds(
-                        distance,
-                        sampleBuffer.samples()
-                    )
+                    val eta =
+                        if (distance == Float.MAX_VALUE) {
+                            Long.MAX_VALUE
+                        } else {
+                            EtaEstimator.estimateSeconds(
+                                distance,
+                                sampleBuffer.samples()
+                            )
+                        }
 
                     val finalState =
                         if (

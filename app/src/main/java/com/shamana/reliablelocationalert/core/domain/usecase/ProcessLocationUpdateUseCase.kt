@@ -62,7 +62,14 @@ class ProcessLocationUpdateUseCase(
             DistanceCalculator.averageDistanceMeters(samples, destination)
 
         val etaSeconds =
-            EtaEstimator.estimateSeconds(avgDistance, samples)
+            if (avgDistance == Float.MAX_VALUE) {
+                Long.MAX_VALUE
+            } else {
+                EtaEstimator.estimateSeconds(
+                    avgDistance,
+                    samples
+                )
+            }
 
         val isNear =
             avgDistance <= destination.alertRadiusMeters ||
