@@ -1,10 +1,12 @@
 package com.shamana.reliablelocationalert.core.domain.usecase
 
 import com.shamana.reliablelocationalert.core.domain.model.LocationSample
-import kotlin.math.max
-import kotlin.math.min
 
 object EtaEstimator {
+
+    private const val FALLBACK_WALKING_SPEED_MPS = 1.2f
+    private const val MIN_SPEED_MPS = 0.5f
+    private const val MAX_SPEED_MPS = 50.0f
 
     fun estimateSeconds(
         distanceMeters: Float,
@@ -18,11 +20,13 @@ object EtaEstimator {
         val avgSpeed = if (speeds.isNotEmpty()) {
             speeds.average().toFloat()
         } else {
-            1.2f   // fallback walking speed
+            FALLBACK_WALKING_SPEED_MPS
         }
 
-        // clamp speed to realistic range
-        val safeSpeed = min(max(avgSpeed, 0.5f), 3.0f)
+        val safeSpeed = avgSpeed.coerceIn(
+            MIN_SPEED_MPS,
+            MAX_SPEED_MPS
+        )
 
         return (distanceMeters / safeSpeed).toLong()
     }
