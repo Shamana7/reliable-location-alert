@@ -20,28 +20,30 @@ class BootReceiver : BroadcastReceiver() {
     @Inject
     lateinit var repository: TrackingRepository
 
-    override fun onReceive(
-        context: Context,
-        intent: Intent
-    ) {
+    override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != Intent.ACTION_BOOT_COMPLETED) return
+
+        val pendingResult = goAsync()
+
         CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val session = repository.getSession()
 
-            val session = repository.getSession()
+                if (session != null &&
+                    session.state != TrackingState.COMPLETED
+                ) {
+                    val serviceIntent =
+                        Intent(context, LocationTrackingService::class.java)
 
-            if (
-                session != null &&
-                session.state != TrackingState.COMPLETED
-            ) {
-                val serviceIntent =
-                    Intent(context, LocationTrackingService::class.java)
-
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    context.startForegroundService(serviceIntent)
-                } else {
-                    context.startService(serviceIntent)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        context.startForegroundService(serviceIntent)
+                    } else {
+                        context.startService(serviceIntent)
+                    }
+                    Log.d("BootReceiver", "Tracking resumed after reboot")
                 }
-                Log.d("BootReceiver", "Tracking resumed after reboot")
+            } finally {
+                pendingResult.finish()
             }
         }
     }
