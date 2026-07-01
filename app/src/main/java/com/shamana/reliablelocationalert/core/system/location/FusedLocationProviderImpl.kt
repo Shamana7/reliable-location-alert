@@ -3,7 +3,7 @@ package com.shamana.reliablelocationalert.core.system.location
 import android.Manifest
 import android.content.Context
 import android.location.Location
-import android.os.Looper
+import android.os.HandlerThread
 import androidx.annotation.RequiresPermission
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
@@ -19,9 +19,16 @@ class FusedLocationProviderImpl(
         LocationServices.getFusedLocationProviderClient(context)
 
     private var locationCallback: LocationCallback? = null
+    private var locationThread: HandlerThread? = null
 
     @RequiresPermission(allOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
     override fun start(onLocation: (Location) -> Unit) {
+
+        if (locationThread == null) {
+            locationThread = HandlerThread("LocationUpdates").apply {
+                start()
+            }
+        }
 
         val request = LocationRequest.Builder(
             Priority.PRIORITY_BALANCED_POWER_ACCURACY,
@@ -42,7 +49,7 @@ class FusedLocationProviderImpl(
         client.requestLocationUpdates(
             request,
             locationCallback!!,
-            Looper.getMainLooper()
+            locationThread!!.looper
         )
     }
 
@@ -51,5 +58,8 @@ class FusedLocationProviderImpl(
             client.removeLocationUpdates(it)
         }
         locationCallback = null
+
+        locationThread?.quitSafely()
+        locationThread = null
     }
 }
