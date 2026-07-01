@@ -92,12 +92,18 @@ class TrackingViewModel @Inject constructor(
     fun stopTracking() {
 
         viewModelScope.launch {
-            repository.clear()
 
-            val intent = Intent(context, LocationTrackingService::class.java)
-            context.stopService(intent)
+            val intent = Intent(
+                context,
+                LocationTrackingService::class.java
+            ).apply {
+                action = LocationTrackingService.ACTION_STOP_TRACKING
+            }
 
-            _uiState.value = _uiState.value.copy(isTracking = false)
+            context.startService(intent)
+
+            _uiState.value =
+                _uiState.value.copy(isTracking = false)
         }
     }
 
